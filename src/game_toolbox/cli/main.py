@@ -79,3 +79,70 @@ def frame_extractor_cmd(
     )
 
     click.echo(f"Extracted {result.frame_count} frames to {result.output_dir}")
+
+
+@cli.command(name="image-resizer")
+@click.argument("inputs", nargs=-1, required=True, type=click.Path(exists=True, resolve_path=True))
+@click.option(
+    "-m",
+    "--mode",
+    required=True,
+    type=click.Choice(["exact", "fit", "fill", "percent"]),
+    help="Resize mode.",
+)
+@click.option("-W", "--width", type=int, default=None, help="Target width in pixels.")
+@click.option("-H", "--height", type=int, default=None, help="Target height in pixels.")
+@click.option("-p", "--percent", type=float, default=None, help="Scale percentage (1-1000).")
+@click.option(
+    "-o",
+    "--output",
+    "output_dir",
+    type=click.Path(resolve_path=True),
+    default=None,
+    help="Output directory (default: 'resized/' next to first input).",
+)
+@click.option("--in-place", is_flag=True, default=False, help="Overwrite original files.")
+@click.option(
+    "-r",
+    "--resample",
+    default="lanczos",
+    show_default=True,
+    type=click.Choice(["lanczos", "bilinear", "bicubic", "nearest"]),
+    help="Resampling filter.",
+)
+def image_resizer_cmd(
+    inputs: tuple[str, ...],
+    mode: str,
+    width: int | None,
+    height: int | None,
+    percent: float | None,
+    output_dir: str | None,
+    in_place: bool,
+    resample: str,
+) -> None:
+    """Resize images using exact, fit, fill, or percent mode.
+
+    INPUTS can be image files, directories, or a mix of both.
+    """
+    from game_toolbox.core.events import EventBus
+    from game_toolbox.tools.image_resizer import ImageResizerTool
+
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}/{kw['total']:5d}] {kw['message']}"))
+
+    tool = ImageResizerTool(event_bus=bus)
+    result = tool.run(
+        params={
+            "inputs": [Path(p) for p in inputs],
+            "output_dir": Path(output_dir) if output_dir else None,
+            "mode": mode,
+            "width": width,
+            "height": height,
+            "percent": percent,
+            "resample": resample,
+            "in_place": in_place,
+        },
+    )
+
+    location = "in-place" if result.in_place else str(result.images[0].path.parent) if result.images else "N/A"
+    click.echo(f"Resized {result.count} images ({location})")

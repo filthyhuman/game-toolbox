@@ -43,3 +43,12 @@ class ExtractionResult:
     output_dir: Path
     frame_count: int
     paths: tuple[Path, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ResizeResult:
+    """Result of an image resize operation."""
+
+    images: tuple[ImageData, ...]
+    count: int
+    in_place: bool
