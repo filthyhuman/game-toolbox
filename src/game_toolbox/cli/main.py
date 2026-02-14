@@ -60,9 +60,13 @@ def frame_extractor_cmd(
     video_path = Path(video)
     output_dir = _build_output_dir(video_path)
 
+    from game_toolbox.core.events import EventBus
     from game_toolbox.tools.frame_extractor import FrameExtractorTool
 
-    tool = FrameExtractorTool()
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}] {kw['message']}"))
+
+    tool = FrameExtractorTool(event_bus=bus)
     result = tool.run(
         params={
             "video_path": video_path,
