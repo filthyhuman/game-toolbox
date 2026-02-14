@@ -61,7 +61,7 @@ game-toolbox/                          ← repo root (already exists)
 │       │   ├── base_tool.py           ← BaseTool ABC — THE contract every tool implements
 │       │   ├── registry.py            ← ToolRegistry singleton — auto-discovers tools
 │       │   ├── pipeline.py            ← Pipeline & PipelineStage — chains tools via ports
-│       │   ├── datatypes.py           ← shared value objects: ImageData, AudioData, VideoData, PathList
+│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult
 │       │   ├── config.py              ← ConfigManager — per-tool + global settings (TOML-backed)
 │       │   ├── events.py              ← EventBus — decoupled Observer for progress / status / errors
 │       │   └── exceptions.py          ← ToolError, PipelineError, ValidationError hierarchy
@@ -614,8 +614,9 @@ uv sync --extra dev
 # Run the GUI
 uv run game-toolbox-gui
 
-# Run a tool via CLI
+# Run tools via CLI
 uv run game-toolbox frame-extractor video.mp4 --interval 100 --format webp
+uv run game-toolbox image-resizer sprites/ -m fit -W 256 -H 256
 
 # Run all quality checks
 uv run ruff check src/ tests/

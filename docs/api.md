@@ -18,7 +18,8 @@ game_toolbox
 │   └── exceptions          # Exception hierarchy
 ├── cli                     # Click-based CLI entry points
 └── tools                   # Concrete tool sub-packages
-    └── frame_extractor     # Video frame extraction
+    ├── frame_extractor     # Video frame extraction
+    └── image_resizer       # Image resizing (exact, fit, fill, percent)
 ```
 
 ---
@@ -215,7 +216,7 @@ other handlers.
 
 | Event | Keyword Args | Emitted by |
 |-------|-------------|------------|
-| `"progress"` | `tool`, `current`, `message` | Tools during frame-by-frame processing. |
+| `"progress"` | `tool`, `current`, `message`, (`total`) | Tools during item-by-item processing. |
 | `"completed"` | `tool`, `message` | Tools after successful completion. |
 
 #### Usage
@@ -303,6 +304,14 @@ pipelines.
 | `output_dir` | `Path` | *required* | Directory containing extracted frames. |
 | `frame_count` | `int` | *required* | Number of frames extracted. |
 | `paths` | `tuple[Path, ...]` | `()` | Paths to the extracted frame files. |
+
+### `ResizeResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `images` | `tuple[ImageData, ...]` | Metadata for each resized image. |
+| `count` | `int` | Number of images resized. |
+| `in_place` | `bool` | Whether originals were overwritten. |
 
 ---
 
@@ -414,5 +423,150 @@ result = tool.run(params={
     "format": "png",
     "quality": 90,
     "max_frames": 10,
+})
+```
+
+---
+
+## `game_toolbox.tools.image_resizer`
+
+### `image_resizer.logic`
+
+#### `collect_image_paths`
+
+```python
+def collect_image_paths(inputs: list[Path]) -> list[Path]
+```
+
+Collect image file paths from a mix of files and directories. Directories are
+scanned non-recursively. Results are sorted and deduplicated.
+
+**Supported extensions:** `.png`, `.jpg`, `.jpeg`, `.webp`, `.avif`, `.bmp`, `.tiff`
+
+**Returns:** Sorted list of resolved `Path` objects.
+
+**Raises:** `ToolError` if no image files are found.
+
+#### `validate_resize_params`
+
+```python
+def validate_resize_params(
+    *,
+    mode: str,
+    width: int | None,
+    height: int | None,
+    percent: float | None,
+    resample: str,
+) -> None
+```
+
+Validate resize parameters before processing.
+
+**Raises:** `ValidationError` if parameters are invalid for the chosen mode.
+
+#### `resize_image`
+
+```python
+def resize_image(
+    input_path: Path,
+    output_path: Path,
+    *,
+    mode: str,
+    width: int | None = None,
+    height: int | None = None,
+    percent: float | None = None,
+    resample: str = "lanczos",
+    event_bus: EventBus | None = None,
+) -> ImageData
+```
+
+Resize a single image file.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_path` | `Path` | *required* | Source image path. |
+| `output_path` | `Path` | *required* | Destination path (parent dir created automatically). |
+| `mode` | `str` | *required* | `"exact"`, `"fit"`, `"fill"`, or `"percent"`. |
+| `width` | `int \| None` | `None` | Target width (required for exact/fit/fill). |
+| `height` | `int \| None` | `None` | Target height (required for exact/fit/fill). |
+| `percent` | `float \| None` | `None` | Scale percentage 1-1000 (required for percent). |
+| `resample` | `str` | `"lanczos"` | Resampling filter: `lanczos`, `bilinear`, `bicubic`, `nearest`. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `ImageData` with the output path, dimensions, and format.
+
+**Raises:** `ToolError` if the image cannot be opened or saved. `ValidationError` if parameters are invalid.
+
+#### Resize Modes
+
+| Mode | Description |
+|------|-------------|
+| `exact` | Force target dimensions, ignoring aspect ratio. |
+| `fit` | Fit within the bounding box, preserving aspect ratio. Shorter side has padding room. |
+| `fill` | Fill the bounding box, preserving aspect ratio. Excess is cropped from center. |
+| `percent` | Scale by percentage (e.g. `50` = half size, `200` = double size). |
+
+#### `resize_batch`
+
+```python
+def resize_batch(
+    input_paths: list[Path],
+    output_dir: Path | None,
+    *,
+    mode: str,
+    width: int | None = None,
+    height: int | None = None,
+    percent: float | None = None,
+    resample: str = "lanczos",
+    event_bus: EventBus | None = None,
+) -> ResizeResult
+```
+
+Resize a batch of images. When `output_dir` is `None`, images are resized
+in-place (originals overwritten).
+
+**Returns:** `ResizeResult` with image metadata, count, and in-place flag.
+
+#### Constants
+
+| Name | Type | Description |
+|------|------|-------------|
+| `IMAGE_EXTENSIONS` | `frozenset[str]` | Recognised image file extensions. |
+| `RESAMPLE_FILTERS` | `dict[str, Image.Resampling]` | Map of filter names to Pillow constants. |
+| `VALID_MODES` | `frozenset[str]` | Set of valid resize mode strings. |
+
+### `image_resizer.tool`
+
+#### `ImageResizerTool`
+
+```python
+class ImageResizerTool(BaseTool):
+```
+
+| Attribute | Value |
+|-----------|-------|
+| `name` | `"image_resizer"` |
+| `display_name` | `"Image Resizer"` |
+| `category` | `"Image"` |
+| `input_types()` | `[PathList]` |
+| `output_types()` | `[PathList]` |
+
+Wraps `resize_batch()` via the `BaseTool` template method lifecycle.
+Accepts `PathList` as pipeline input (e.g. from Frame Extractor).
+
+```python
+from pathlib import Path
+from game_toolbox.tools.image_resizer import ImageResizerTool
+
+tool = ImageResizerTool()
+result = tool.run(params={
+    "inputs": [Path("sprites/")],
+    "output_dir": Path("resized/"),
+    "mode": "fit",
+    "width": 256,
+    "height": 256,
+    "percent": None,
+    "resample": "lanczos",
+    "in_place": False,
 })
 ```

@@ -85,6 +85,65 @@ print(f"Extracted {result.frame_count} frames to {result.output_dir}")
 See the [Frame Extractor README](src/game_toolbox/tools/frame_extractor/README.md)
 for detailed parameter documentation.
 
+### Image Resizer
+
+Resizes images using four modes: **exact** (force dimensions), **fit** (preserve
+aspect ratio within a box), **fill** (fill box and crop excess), and **percent**
+(scale by percentage). Accepts single files, directories, or a mix of both.
+
+#### CLI Usage
+
+```bash
+# Resize to exact 256x256
+uv run game-toolbox image-resizer photo.png -m exact -W 256 -H 256
+
+# Fit all images in a directory into a 512x512 box
+uv run game-toolbox image-resizer ./sprites/ -m fit -W 512 -H 512
+
+# Scale down to 50%, overwriting originals
+uv run game-toolbox image-resizer *.png -m percent -p 50 --in-place
+
+# Custom output directory and resample filter
+uv run game-toolbox image-resizer input/ -m fill -W 128 -H 128 -o output/ -r bicubic
+```
+
+#### CLI Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--mode` | `-m` | *required* | Resize mode: `exact`, `fit`, `fill`, `percent`. |
+| `--width` | `-W` | | Target width in pixels (required for exact/fit/fill). |
+| `--height` | `-H` | | Target height in pixels (required for exact/fit/fill). |
+| `--percent` | `-p` | | Scale percentage 1-1000 (required for percent mode). |
+| `--output` | `-o` | `resized/` | Output directory. Default: `resized/` next to first input. |
+| `--in-place` | | `false` | Overwrite original files instead of writing to output dir. |
+| `--resample` | `-r` | `lanczos` | Resampling filter: `lanczos`, `bilinear`, `bicubic`, `nearest`. |
+
+#### Library Usage
+
+```python
+from pathlib import Path
+from game_toolbox.tools.image_resizer.logic import resize_image, resize_batch, collect_image_paths
+
+# Resize a single image
+result = resize_image(
+    Path("photo.png"),
+    Path("output/photo.png"),
+    mode="fit",
+    width=256,
+    height=256,
+)
+print(f"Resized to {result.width}x{result.height}")
+
+# Batch resize a directory
+paths = collect_image_paths([Path("sprites/")])
+result = resize_batch(paths, Path("output/"), mode="percent", percent=50)
+print(f"Resized {result.count} images")
+```
+
+See the [Image Resizer README](src/game_toolbox/tools/image_resizer/README.md)
+for detailed parameter documentation.
+
 ## Architecture
 
 Game Toolbox follows a layered architecture with strict separation of concerns:
@@ -96,7 +155,7 @@ Presentation (CLI / GUI / Library import)
         |
     BaseTool ABC (Template Method pattern)
         |
-  Concrete Tools (frame_extractor, ...)
+  Concrete Tools (frame_extractor, image_resizer, ...)
 ```
 
 Each tool is a self-contained sub-package under `src/game_toolbox/tools/` with
@@ -136,7 +195,8 @@ game-toolbox/
 │   ├── cli/           # Click-based CLI layer
 │   ├── gui/           # PySide6 GUI layer
 │   └── tools/         # Tool sub-packages (auto-discovered)
-│       └── frame_extractor/
+│       ├── frame_extractor/
+│       └── image_resizer/
 ├── tests/             # Integration tests
 ├── docs/              # API reference documentation
 └── pyproject.toml     # Single source of truth for build, lint, type check
