@@ -19,7 +19,9 @@ game_toolbox
 ├── cli                     # Click-based CLI entry points
 └── tools                   # Concrete tool sub-packages
     ├── frame_extractor     # Video frame extraction
-    └── image_resizer       # Image resizing (exact, fit, fill, percent)
+    ├── image_resizer       # Image resizing (exact, fit, fill, percent)
+    ├── chroma_key          # Chroma key background removal
+    └── sprite_sheet        # Sprite sheet atlas generation
 ```
 
 ---
@@ -313,6 +315,35 @@ pipelines.
 | `count` | `int` | Number of images resized. |
 | `in_place` | `bool` | Whether originals were overwritten. |
 
+### `ChromaKeyResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `images` | `tuple[ImageData, ...]` | Metadata for each keyed image. |
+| `count` | `int` | Number of images processed. |
+| `in_place` | `bool` | Whether originals were overwritten. |
+
+### `SpriteFrame`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `str` | Frame name (derived from input filename stem). |
+| `x` | `int` | X position in the sprite sheet (pixels). |
+| `y` | `int` | Y position in the sprite sheet (pixels). |
+| `width` | `int` | Frame width in pixels. |
+| `height` | `int` | Frame height in pixels. |
+
+### `SpriteSheetResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sheet` | `ImageData` | Metadata for the generated sprite sheet image. |
+| `frames` | `tuple[SpriteFrame, ...]` | Position and size of each frame. |
+| `columns` | `int` | Number of columns in the grid. |
+| `rows` | `int` | Number of rows in the grid. |
+| `padding` | `int` | Pixel padding between frames. |
+| `metadata_path` | `Path` | Path to the generated metadata file. |
+
 ---
 
 ## `game_toolbox.core.exceptions`
@@ -568,5 +599,212 @@ result = tool.run(params={
     "percent": None,
     "resample": "lanczos",
     "in_place": False,
+})
+```
+
+---
+
+## `game_toolbox.tools.chroma_key`
+
+### `chroma_key.logic`
+
+#### `remove_chroma_key`
+
+```python
+def remove_chroma_key(
+    input_path: Path,
+    output_path: Path,
+    *,
+    color: tuple[int, int, int],
+    tolerance: float = 30.0,
+    softness: float = 10.0,
+    event_bus: EventBus | None = None,
+) -> ImageData
+```
+
+Remove a chroma key colour from a single image. Pixels within `tolerance`
+Euclidean distance become fully transparent. Pixels in the `softness` band
+receive proportional alpha.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_path` | `Path` | *required* | Source image path. |
+| `output_path` | `Path` | *required* | Destination path (parent dir created automatically). |
+| `color` | `tuple[int, int, int]` | *required* | Target RGB colour to remove. |
+| `tolerance` | `float` | `30.0` | Euclidean distance threshold (0-255). |
+| `softness` | `float` | `10.0` | Soft-edge transition band width. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `ImageData` with the output path, dimensions, and format.
+
+**Raises:** `ToolError` if the image cannot be opened or saved.
+
+#### `chroma_key_batch`
+
+```python
+def chroma_key_batch(
+    input_paths: list[Path],
+    output_dir: Path | None,
+    *,
+    color: tuple[int, int, int],
+    tolerance: float = 30.0,
+    softness: float = 10.0,
+    output_format: str = "png",
+    event_bus: EventBus | None = None,
+) -> ChromaKeyResult
+```
+
+Remove chroma key from a batch of images. When `output_dir` is `None`,
+images are processed in-place.
+
+**Returns:** `ChromaKeyResult` with image metadata, count, and in-place flag.
+
+#### `validate_chroma_params`
+
+```python
+def validate_chroma_params(
+    *,
+    color: tuple[int, int, int],
+    tolerance: float,
+    softness: float,
+    output_format: str,
+) -> None
+```
+
+Validate chroma key parameters before processing.
+
+**Raises:** `ValidationError` if parameters are out of range or unsupported.
+
+#### Constants
+
+| Name | Type | Description |
+|------|------|-------------|
+| `COLOR_PRESETS` | `dict[str, tuple[int, int, int]]` | Predefined chroma key colours (green, blue, magenta). |
+| `ALPHA_FORMATS` | `frozenset[str]` | Output formats that support alpha (`png`, `webp`). |
+
+### `chroma_key.tool`
+
+#### `ChromaKeyTool`
+
+```python
+class ChromaKeyTool(BaseTool):
+```
+
+| Attribute | Value |
+|-----------|-------|
+| `name` | `"chroma_key"` |
+| `display_name` | `"Chroma Key"` |
+| `category` | `"Image"` |
+| `input_types()` | `[PathList]` |
+| `output_types()` | `[PathList]` |
+
+Wraps `chroma_key_batch()` via the `BaseTool` template method lifecycle.
+Accepts `PathList` as pipeline input (e.g. from Image Resizer).
+
+```python
+from pathlib import Path
+from game_toolbox.tools.chroma_key import ChromaKeyTool
+
+tool = ChromaKeyTool()
+result = tool.run(params={
+    "inputs": [Path("sprites/")],
+    "output_dir": Path("keyed/"),
+    "preset": "green",
+    "color": None,
+    "tolerance": 30.0,
+    "softness": 10.0,
+    "output_format": "png",
+    "in_place": False,
+})
+```
+
+---
+
+## `game_toolbox.tools.sprite_sheet`
+
+### `sprite_sheet.logic`
+
+#### `generate_sprite_sheet`
+
+```python
+def generate_sprite_sheet(
+    input_paths: list[Path],
+    output_path: Path,
+    *,
+    columns: int | None = None,
+    padding: int = 1,
+    metadata_format: str = "json",
+    event_bus: EventBus | None = None,
+) -> SpriteSheetResult
+```
+
+Pack multiple images into a single sprite sheet atlas. Images are laid out in
+a grid. If `columns` is `None`, it is auto-calculated as `ceil(sqrt(n))`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_paths` | `list[Path]` | *required* | Image file paths to pack. |
+| `output_path` | `Path` | *required* | Destination path for the sprite sheet. |
+| `columns` | `int \| None` | `None` | Grid columns (`None` for auto). |
+| `padding` | `int` | `1` | Pixel padding between frames. |
+| `metadata_format` | `str` | `"json"` | Metadata format: `json`, `css`, `xml`. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `SpriteSheetResult` with sheet metadata, frame positions, and metadata file path.
+
+**Raises:** `ToolError` if images cannot be opened or saved. `ValidationError` if parameters are invalid.
+
+#### `validate_sprite_params`
+
+```python
+def validate_sprite_params(
+    *,
+    columns: int | None,
+    padding: int,
+    metadata_format: str,
+    input_count: int,
+) -> None
+```
+
+Validate sprite sheet parameters before processing.
+
+**Raises:** `ValidationError` if parameters are out of range or unsupported.
+
+#### Constants
+
+| Name | Type | Description |
+|------|------|-------------|
+| `VALID_METADATA_FORMATS` | `frozenset[str]` | Supported metadata formats (`json`, `css`, `xml`). |
+
+### `sprite_sheet.tool`
+
+#### `SpriteSheetTool`
+
+```python
+class SpriteSheetTool(BaseTool):
+```
+
+| Attribute | Value |
+|-----------|-------|
+| `name` | `"sprite_sheet"` |
+| `display_name` | `"Sprite Sheet"` |
+| `category` | `"Image"` |
+| `input_types()` | `[PathList]` |
+| `output_types()` | `[ImageData]` |
+
+Wraps `generate_sprite_sheet()` via the `BaseTool` template method lifecycle.
+Accepts `PathList` as pipeline input (e.g. from Chroma Key).
+
+```python
+from pathlib import Path
+from game_toolbox.tools.sprite_sheet import SpriteSheetTool
+
+tool = SpriteSheetTool()
+result = tool.run(params={
+    "inputs": [Path("sprites/")],
+    "output": Path("atlas.png"),
+    "columns": 4,
+    "padding": 1,
+    "metadata_format": "json",
 })
 ```

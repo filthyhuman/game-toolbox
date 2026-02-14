@@ -144,6 +144,115 @@ print(f"Resized {result.count} images")
 See the [Image Resizer README](src/game_toolbox/tools/image_resizer/README.md)
 for detailed parameter documentation.
 
+### Chroma Key Remover
+
+Removes solid-colour backgrounds (green screen, blue screen, custom colours)
+from images and replaces them with transparency. Uses NumPy for fast
+pixel-level Euclidean distance calculations with configurable tolerance and
+soft-edge transition.
+
+#### CLI Usage
+
+```bash
+# Remove green background (default)
+uv run game-toolbox chroma-key sprites/
+
+# Remove blue background
+uv run game-toolbox chroma-key -p blue screenshots/
+
+# Custom colour with tight tolerance
+uv run game-toolbox chroma-key -c 128,64,32 -t 20 -s 5 image.png
+
+# Output as WebP
+uv run game-toolbox chroma-key -f webp -o output/ sprites/
+```
+
+#### CLI Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--preset` | `-p` | `green` | Colour preset: `green`, `blue`, `magenta`. |
+| `--color` | `-c` | | Custom RGB colour as `R,G,B` (overrides preset). |
+| `--tolerance` | `-t` | `30.0` | Euclidean distance threshold for transparency (0-255). |
+| `--softness` | `-s` | `10.0` | Soft-edge transition band width. |
+| `--format` | `-f` | `png` | Output format: `png`, `webp` (must support alpha). |
+| `--output` | `-o` | `keyed/` | Output directory. Default: `keyed/` next to first input. |
+| `--in-place` | | `false` | Overwrite original files. |
+
+#### Library Usage
+
+```python
+from pathlib import Path
+from game_toolbox.tools.chroma_key.logic import remove_chroma_key, chroma_key_batch
+
+# Single image
+result = remove_chroma_key(
+    Path("input.png"),
+    Path("output.png"),
+    color=(0, 177, 64),
+    tolerance=30.0,
+    softness=10.0,
+)
+
+# Batch
+result = chroma_key_batch(
+    [Path("a.png"), Path("b.png")],
+    Path("output/"),
+    color=(0, 177, 64),
+)
+```
+
+See the [Chroma Key README](src/game_toolbox/tools/chroma_key/README.md)
+for detailed parameter documentation.
+
+### Sprite Sheet Generator
+
+Packs multiple images into a single sprite sheet atlas with metadata. Supports
+JSON, CSS, and XML metadata formats. Images are laid out in a grid with
+configurable columns and padding.
+
+#### CLI Usage
+
+```bash
+# Auto-layout from a directory
+uv run game-toolbox sprite-sheet sprites/
+
+# Custom columns and padding
+uv run game-toolbox sprite-sheet -c 8 -p 2 frames/
+
+# Output with CSS metadata
+uv run game-toolbox sprite-sheet -m css -o atlas.png sprites/
+```
+
+#### CLI Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--output` | `-o` | `sprite_sheet.png` | Output file path. |
+| `--columns` | `-c` | *auto* | Number of columns (default: `ceil(sqrt(n))`). |
+| `--padding` | `-p` | `1` | Pixel padding between frames. |
+| `--metadata` | `-m` | `json` | Metadata format: `json`, `css`, `xml`. |
+
+#### Library Usage
+
+```python
+from pathlib import Path
+from game_toolbox.tools.sprite_sheet.logic import generate_sprite_sheet
+
+result = generate_sprite_sheet(
+    [Path("frame_0.png"), Path("frame_1.png"), Path("frame_2.png")],
+    Path("output/sheet.png"),
+    columns=3,
+    padding=1,
+    metadata_format="json",
+)
+print(f"Sheet: {result.sheet.width}x{result.sheet.height}")
+print(f"Metadata: {result.metadata_path}")
+```
+
+See the [Sprite Sheet README](src/game_toolbox/tools/sprite_sheet/README.md)
+for detailed parameter documentation.
+
 ## Architecture
 
 Game Toolbox follows a layered architecture with strict separation of concerns:
@@ -155,7 +264,7 @@ Presentation (CLI / GUI / Library import)
         |
     BaseTool ABC (Template Method pattern)
         |
-  Concrete Tools (frame_extractor, image_resizer, ...)
+  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, ...)
 ```
 
 Each tool is a self-contained sub-package under `src/game_toolbox/tools/` with
@@ -196,7 +305,9 @@ game-toolbox/
 │   ├── gui/           # PySide6 GUI layer
 │   └── tools/         # Tool sub-packages (auto-discovered)
 │       ├── frame_extractor/
-│       └── image_resizer/
+│       ├── image_resizer/
+│       ├── chroma_key/
+│       └── sprite_sheet/
 ├── tests/             # Integration tests
 ├── docs/              # API reference documentation
 └── pyproject.toml     # Single source of truth for build, lint, type check

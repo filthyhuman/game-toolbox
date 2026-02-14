@@ -146,3 +146,128 @@ def image_resizer_cmd(
 
     location = "in-place" if result.in_place else str(result.images[0].path.parent) if result.images else "N/A"
     click.echo(f"Resized {result.count} images ({location})")
+
+
+@cli.command(name="chroma-key")
+@click.argument("inputs", nargs=-1, required=True, type=click.Path(exists=True, resolve_path=True))
+@click.option(
+    "-p",
+    "--preset",
+    default=None,
+    type=click.Choice(["green", "blue", "magenta"]),
+    help="Colour preset (default: green).",
+)
+@click.option("-c", "--color", "color_str", default=None, help="Custom RGB colour as 'R,G,B' (overrides preset).")
+@click.option("-t", "--tolerance", type=float, default=30.0, show_default=True, help="Distance threshold (0-255).")
+@click.option("-s", "--softness", type=float, default=10.0, show_default=True, help="Soft-edge transition band width.")
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    default="png",
+    show_default=True,
+    type=click.Choice(["png", "webp"]),
+    help="Output image format (must support alpha).",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_dir",
+    type=click.Path(resolve_path=True),
+    default=None,
+    help="Output directory (default: 'keyed/' next to first input).",
+)
+@click.option("--in-place", is_flag=True, default=False, help="Overwrite original files.")
+def chroma_key_cmd(
+    inputs: tuple[str, ...],
+    preset: str | None,
+    color_str: str | None,
+    tolerance: float,
+    softness: float,
+    fmt: str,
+    output_dir: str | None,
+    in_place: bool,
+) -> None:
+    """Remove solid-colour backgrounds from images and replace with transparency.
+
+    INPUTS can be image files, directories, or a mix of both.
+    If neither --preset nor --color is given, defaults to green.
+    """
+    from game_toolbox.core.events import EventBus
+    from game_toolbox.tools.chroma_key import ChromaKeyTool
+
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}/{kw['total']:5d}] {kw['message']}"))
+
+    tool = ChromaKeyTool(event_bus=bus)
+    result = tool.run(
+        params={
+            "inputs": [Path(p) for p in inputs],
+            "output_dir": Path(output_dir) if output_dir else None,
+            "preset": preset or "green",
+            "color": color_str,
+            "tolerance": tolerance,
+            "softness": softness,
+            "output_format": fmt,
+            "in_place": in_place,
+        },
+    )
+
+    location = "in-place" if result.in_place else str(result.images[0].path.parent) if result.images else "N/A"
+    click.echo(f"Keyed {result.count} images ({location})")
+
+
+@cli.command(name="sprite-sheet")
+@click.argument("inputs", nargs=-1, required=True, type=click.Path(exists=True, resolve_path=True))
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(resolve_path=True),
+    default=None,
+    help="Output sprite sheet file (default: sprite-sheet/ next to first input).",
+)
+@click.option("-c", "--columns", type=int, default=None, help="Number of columns (default: auto).")
+@click.option("-p", "--padding", type=int, default=1, show_default=True, help="Pixel padding between frames.")
+@click.option(
+    "-m",
+    "--metadata",
+    "metadata_format",
+    default="json",
+    show_default=True,
+    type=click.Choice(["json", "css", "xml"]),
+    help="Metadata output format.",
+)
+def sprite_sheet_cmd(
+    inputs: tuple[str, ...],
+    output_path: str | None,
+    columns: int | None,
+    padding: int,
+    metadata_format: str,
+) -> None:
+    """Pack multiple images into a single sprite sheet atlas with metadata.
+
+    INPUTS can be image files, directories, or a mix of both.
+    """
+    from game_toolbox.core.events import EventBus
+    from game_toolbox.tools.sprite_sheet import SpriteSheetTool
+
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}/{kw['total']:5d}] {kw['message']}"))
+
+    tool = SpriteSheetTool(event_bus=bus)
+    result = tool.run(
+        params={
+            "inputs": [Path(p) for p in inputs],
+            "output": Path(output_path) if output_path else None,
+            "columns": columns,
+            "padding": padding,
+            "metadata_format": metadata_format,
+        },
+    )
+
+    click.echo(
+        f"Generated {result.columns}x{result.rows} sprite sheet "
+        f"({result.sheet.width}x{result.sheet.height}px, "
+        f"{len(result.frames)} frames) → {result.sheet.path}"
+    )

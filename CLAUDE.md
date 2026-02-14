@@ -97,11 +97,27 @@ game-toolbox/                          ← repo root (already exists)
 │           │       ├── test_logic.py
 │           │       └── test_tool.py
 │           │
-│           ├── image_resizer/         ← another tool (same structure)
+│           ├── image_resizer/         ← image resizing (same structure)
 │           │   ├── __init__.py
 │           │   ├── tool.py
 │           │   ├── logic.py
 │           │   ├── gui_panel.py
+│           │   ├── README.md
+│           │   └── tests/
+│           │       └── …
+│           │
+│           ├── chroma_key/            ← chroma key background removal
+│           │   ├── __init__.py
+│           │   ├── tool.py
+│           │   ├── logic.py
+│           │   ├── README.md
+│           │   └── tests/
+│           │       └── …
+│           │
+│           ├── sprite_sheet/          ← sprite sheet atlas generation
+│           │   ├── __init__.py
+│           │   ├── tool.py
+│           │   ├── logic.py
 │           │   ├── README.md
 │           │   └── tests/
 │           │       └── …

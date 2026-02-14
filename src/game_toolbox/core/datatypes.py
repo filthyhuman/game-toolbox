@@ -52,3 +52,35 @@ class ResizeResult:
     images: tuple[ImageData, ...]
     count: int
     in_place: bool
+
+
+@dataclass(frozen=True)
+class ChromaKeyResult:
+    """Result of a chroma key removal operation."""
+
+    images: tuple[ImageData, ...]
+    count: int
+    in_place: bool
+
+
+@dataclass(frozen=True)
+class SpriteFrame:
+    """Position and size of a single frame within a sprite sheet."""
+
+    name: str
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
+class SpriteSheetResult:
+    """Result of a sprite sheet generation operation."""
+
+    sheet: ImageData
+    frames: tuple[SpriteFrame, ...]
+    columns: int
+    rows: int
+    padding: int
+    metadata_path: Path
