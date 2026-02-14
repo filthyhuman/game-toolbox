@@ -32,7 +32,7 @@
 | Formatting | **ruff format** | Deterministic, fast |
 | Type checking | **mypy --strict** | All public APIs fully annotated |
 | CI | **GitHub Actions** | lint → typecheck → test → build — on every push & PR |
-| Docs | Markdown per tool + top-level `README.md` | |
+| Docs | Markdown: `README.md` + `docs/api.md` + per-tool `README.md` | API reference in `docs/`, tool docs inline |
 
 ---
 
@@ -42,9 +42,11 @@
 game-toolbox/                          ← repo root (already exists)
 ├── CLAUDE.md                          ← THIS FILE — project bible
 ├── README.md                          ← user-facing docs, install, usage
-├── LICENSE                            ← MIT
+├── LICENSE                            ← GPL-3.0-only
 ├── pyproject.toml                     ← single source of truth for uv + ruff + mypy
 ├── uv.lock                            ← committed lockfile
+├── docs/
+│   └── api.md                         ← API reference for all public modules
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                     ← lint → typecheck → test → build
