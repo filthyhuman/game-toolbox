@@ -53,11 +53,7 @@ class ToolRegistry:
 
             for attr_name in dir(tool_module):
                 attr = getattr(tool_module, attr_name)
-                if (
-                    isinstance(attr, type)
-                    and issubclass(attr, BaseTool)
-                    and attr is not BaseTool
-                ):
+                if isinstance(attr, type) and issubclass(attr, BaseTool) and attr is not BaseTool:
                     tool_instance = attr(event_bus=event_bus)
                     self._tools[tool_instance.name] = tool_instance
                     logger.info("Registered tool: %s", tool_instance.name)
