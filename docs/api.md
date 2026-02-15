@@ -17,6 +17,16 @@ game_toolbox
 │   ├── datatypes           # Shared value objects
 │   └── exceptions          # Exception hierarchy
 ├── cli                     # Click-based CLI entry points
+├── gui                     # PySide6 GUI layer
+│   ├── app                 # QApplication bootstrap (main entry point)
+│   ├── main_window         # MainWindow: sidebar + stacked pages + status bar
+│   ├── tool_page           # ToolPage: parameter form + run button + progress + log
+│   ├── pipeline_editor     # Visual pipeline editor (placeholder)
+│   └── widgets             # Reusable composite widgets
+│       ├── param_form      # Auto-generated form from ToolParameter schema
+│       ├── progress_panel  # Progress bar + status label
+│       ├── file_picker     # File/directory picker
+│       └── format_selector # Format dropdown
 └── tools                   # Concrete tool sub-packages
     ├── frame_extractor     # Video frame extraction
     ├── image_resizer       # Image resizing (exact, fit, fill, percent)
@@ -356,6 +366,177 @@ ToolboxError (base)
 ```
 
 All exceptions inherit from `ToolboxError` which inherits from `Exception`.
+
+---
+
+## `game_toolbox.gui`
+
+The GUI layer provides a PySide6-based graphical interface. It is entirely
+optional — all tools work headlessly via CLI or library import.
+
+### `gui.app`
+
+#### `main`
+
+```python
+def main() -> None
+```
+
+Launch the Game Toolbox GUI application. Creates a `QApplication`, discovers
+tools via `ToolRegistry`, builds the `MainWindow`, and enters the Qt event loop.
+
+This is the entry point for the `game-toolbox-gui` console script.
+
+---
+
+### `gui.main_window`
+
+#### `MainWindow`
+
+```python
+class MainWindow(QMainWindow):
+```
+
+Top-level window containing a sidebar and stacked tool pages.
+
+##### Constructor
+
+```python
+def __init__(
+    self,
+    registry: ToolRegistry | None = None,
+    event_bus: EventBus | None = None,
+) -> None
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `registry` | `ToolRegistry \| None` | Tool registry used to populate the sidebar. |
+| `event_bus` | `EventBus \| None` | Shared event bus for status-bar messages. |
+
+##### Behaviour
+
+- Groups tools by `tool.category` with bold non-selectable headers in the sidebar.
+- Creates a `ToolPage` for each discovered tool and a `PipelineEditor` placeholder.
+- Sidebar selection switches the `QStackedWidget` to the corresponding page.
+- Subscribes to EventBus `"completed"` events and shows a 5-second status-bar message.
+
+---
+
+### `gui.tool_page`
+
+#### `ToolPage`
+
+```python
+class ToolPage(QWidget):
+```
+
+Adapter widget that presents a `BaseTool` in the GUI with an auto-generated
+parameter form, run button, progress panel, and log area.
+
+##### Constructor
+
+```python
+def __init__(
+    self,
+    tool: BaseTool,
+    event_bus: EventBus | None = None,
+    parent: QWidget | None = None,
+) -> None
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tool` | `BaseTool` | The tool instance to display and execute. |
+| `event_bus` | `EventBus \| None` | Shared event bus for progress events. |
+| `parent` | `QWidget \| None` | Optional parent widget. |
+
+##### Layout
+
+```
+QVBoxLayout
+  QLabel <h2>Tool Name</h2>
+  QLabel description
+  ParamForm (auto-generated)
+  [Run button + spacer]
+  ProgressPanel (bar + status label)
+  QTextEdit (read-only log, monospace)
+```
+
+##### Threading Model
+
+Tool execution runs in a `_ToolWorker(QThread)`. A `_BridgeSignals(QObject)`
+bridges EventBus callbacks (called from the worker thread) to Qt signals
+delivered on the main thread. The page subscribes to EventBus events before
+each run and unsubscribes afterwards.
+
+| Signal | Args | Description |
+|--------|------|-------------|
+| `_BridgeSignals.progress` | `int, int, str` | `(current, total, message)` from `"progress"` events. |
+| `_BridgeSignals.completed` | `str` | Tool name from `"completed"` events. |
+| `_BridgeSignals.error` | `str` | Error message from `"error"` events. |
+| `_BridgeSignals.log` | `str` | Log line from `"log"` events. |
+| `_ToolWorker.finished_ok` | `object` | Emitted with the result on success. |
+| `_ToolWorker.failed` | `str` | Emitted with the error message on failure. |
+
+---
+
+### `gui.pipeline_editor`
+
+#### `PipelineEditor`
+
+```python
+class PipelineEditor(QWidget):
+```
+
+Placeholder widget for the visual pipeline editor. Displays a "coming soon"
+message. Will be replaced with a node-graph canvas in a future release.
+
+---
+
+### `gui.widgets.param_form`
+
+#### `ParamForm`
+
+```python
+class ParamForm(QWidget):
+```
+
+Dynamically generated form from `ToolParameter` definitions.
+
+| Parameter type | Widget |
+|----------------|--------|
+| `str` | `QLineEdit` |
+| `int` | `QSpinBox` |
+| `bool` | `QCheckBox` |
+| `Path` | `QLineEdit` (with placeholder) |
+| choices | `QComboBox` |
+
+##### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `get_values` | `() -> dict[str, Any]` | Collect current form values as a parameter dictionary. |
+
+---
+
+### `gui.widgets.progress_panel`
+
+#### `ProgressPanel`
+
+```python
+class ProgressPanel(QWidget):
+```
+
+Displays a progress bar (0-100) and a status label.
+
+##### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `set_progress` | `(value: int) -> None` | Update the progress bar (clamped to 0-100). |
+| `set_status` | `(message: str) -> None` | Update the status label text. |
+| `reset` | `() -> None` | Reset bar to 0 and label to "Ready." |
 
 ---
 

@@ -508,22 +508,56 @@ pipeline.run(input_data=Path("gameplay.mp4"))
 MainWindow
 ├── QSplitter
 │   ├── Sidebar (QListWidget)            ← grouped by tool.category
+│   │   ├── 📁 Image                     (bold, non-selectable header)
+│   │   │   ├── Chroma Key
+│   │   │   ├── Image Resizer
+│   │   │   └── Sprite Sheet
 │   │   ├── 📁 Video
 │   │   │   └── Frame Extractor
-│   │   ├── 📁 Image
-│   │   │   └── Image Resizer
 │   │   └── 📁 Pipelines
 │   │       └── Pipeline Editor
 │   └── QStackedWidget                   ← one ToolPage per tool
-│       ├── ToolPage[FrameExtractor]
+│       ├── ToolPage[ChromaKey]
+│       │   ├── QLabel <h2> + description
 │       │   ├── ParamForm (auto-generated from define_parameters())
-│       │   └── ProgressPanel
+│       │   ├── [Run] button
+│       │   ├── ProgressPanel (bar + status label)
+│       │   └── QTextEdit log (read-only, monospace)
 │       ├── ToolPage[ImageResizer]
+│       ├── ToolPage[SpriteSheet]
+│       ├── ToolPage[FrameExtractor]
 │       └── PipelineEditorPage
-└── QStatusBar                           ← global status / errors
+└── QStatusBar                           ← shows "X completed." on EventBus events
 ```
 
-**GUI rules:**
+### 10.1 Bootstrap (`app.py`)
+
+`main()` creates a `QApplication`, an `EventBus`, a `ToolRegistry` (with
+`discover(event_bus=…)`), and a `MainWindow(registry=…, event_bus=…)`.
+
+### 10.2 MainWindow (`main_window.py`)
+
+- Accepts `registry` and `event_bus` in its constructor.
+- `_populate_tools()` groups tools by `tool.category`, adds bold non-selectable
+  category headers and selectable tool items to the sidebar, creates a
+  `ToolPage` per tool and a `PipelineEditor` placeholder.
+- Sidebar `currentItemChanged` signal switches the `QStackedWidget` via an
+  `_item_to_index` mapping (keyed by `id(item)`).
+- Subscribes to the EventBus `"completed"` event to show status-bar messages.
+
+### 10.3 ToolPage (`tool_page.py`)
+
+- Layout: heading → description → `ParamForm` → Run button → `ProgressPanel` → log `QTextEdit`.
+- **`_ToolWorker(QThread)`**: runs `tool.run(params)` off the main thread;
+  emits `finished_ok(object)` or `failed(str)`.
+- **`_BridgeSignals(QObject)`**: thread-safe bridge — EventBus callbacks (called
+  from the worker thread) emit Qt signals that are delivered to main-thread slots.
+- Before each run the page subscribes to EventBus `progress` / `completed` /
+  `log` / `error` events; after the run it unsubscribes.
+- Error messages are appended to the log in red via `QTextCharFormat`.
+
+### 10.4 GUI Rules
+
 - Tool execution runs in a `QThread` — GUI never blocks.
 - `ToolPage` uses `ParamForm` widget which auto-generates fields from `define_parameters()` schema.
 - If a tool provides a `gui_panel.py` widget, it is embedded below the auto-form.

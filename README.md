@@ -24,9 +24,28 @@ uv run game-toolbox --help
 # Extract frames from a video (default: every 500ms, WebP format)
 uv run game-toolbox frame-extractor gameplay.mp4
 
-# Launch the GUI (not yet implemented)
+# Launch the GUI
 uv run game-toolbox-gui
 ```
+
+## GUI
+
+Launch the graphical interface with:
+
+```bash
+uv run game-toolbox-gui
+```
+
+The window presents all tools in a sidebar grouped by category (Image, Video,
+Pipelines). Selecting a tool shows an auto-generated parameter form, a **Run**
+button, a live progress bar, and a scrollable log area.
+
+- **Auto-generated forms** — fields are created from each tool's
+  `define_parameters()` schema (dropdowns, spin boxes, checkboxes, text fields).
+- **Threaded execution** — tools run in a background `QThread` so the UI stays
+  responsive.  Progress and log events from `EventBus` are bridged to Qt
+  signals for thread-safe updates.
+- **Pipeline Editor** — placeholder page for a future visual node-graph canvas.
 
 ## Available Tools
 
