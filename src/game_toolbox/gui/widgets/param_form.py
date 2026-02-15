@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
 )
 
 from game_toolbox.core.base_tool import ToolParameter
+from game_toolbox.gui.widgets.file_picker import FilePicker
+from game_toolbox.gui.widgets.multi_path_picker import MultiPathPicker
 
 
 class ParamForm(QWidget):
@@ -25,7 +27,8 @@ class ParamForm(QWidget):
     - ``str`` → ``QLineEdit``
     - ``int`` → ``QSpinBox``
     - ``bool`` → ``QCheckBox``
-    - ``Path`` → ``QLineEdit`` (with placeholder)
+    - ``Path`` → ``FilePicker`` (with browse dialog)
+    - ``list`` → ``MultiPathPicker`` (multi-file/folder selection)
     - choices → ``QComboBox``
 
     Args:
@@ -63,6 +66,10 @@ class ParamForm(QWidget):
                 values[name] = widget.isChecked()
             elif isinstance(widget, QComboBox):
                 values[name] = widget.currentText()
+            elif isinstance(widget, MultiPathPicker):
+                values[name] = widget.paths
+            elif isinstance(widget, FilePicker):
+                values[name] = widget.path
             elif isinstance(widget, QLineEdit):
                 values[name] = widget.text()
         return values
@@ -102,11 +109,19 @@ class ParamForm(QWidget):
                 spin.setValue(int(param.default))
             return spin
 
+        if param.type is list:
+            multi_picker = MultiPathPicker()
+            return multi_picker
+
+        if param.type is Path:
+            is_directory = "directory" in param.help.lower() or param.name.endswith("_dir")
+            label = param.help if param.help else ("Select directory..." if is_directory else "Select file...")
+            file_picker = FilePicker(label=label, directory=is_directory)
+            return file_picker
+
         line = QLineEdit()
         if param.default is not None:
             line.setText(str(param.default))
-        if param.type is Path:
-            line.setPlaceholderText("Enter path...")
         if param.help:
             line.setToolTip(param.help)
         return line

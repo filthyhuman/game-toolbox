@@ -1,4 +1,4 @@
-"""Tests for GUI widgets — ParamForm, ProgressPanel, FilePicker, FormatSelector."""
+"""Tests for GUI widgets — ParamForm, ProgressPanel, FilePicker, FormatSelector, MultiPathPicker."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox
 from game_toolbox.core.base_tool import ToolParameter
 from game_toolbox.gui.widgets.file_picker import FilePicker
 from game_toolbox.gui.widgets.format_selector import FormatSelector
+from game_toolbox.gui.widgets.multi_path_picker import MultiPathPicker
 from game_toolbox.gui.widgets.param_form import ParamForm
 from game_toolbox.gui.widgets.progress_panel import ProgressPanel
 
@@ -54,12 +55,46 @@ class TestParamForm:
         assert isinstance(widget, QComboBox)
         assert widget.currentText() == "webp"
 
-    def test_creates_line_edit_for_path(self, qtbot: object) -> None:
-        """Path parameters produce a QLineEdit with placeholder."""
+    def test_creates_file_picker_for_path(self, qtbot: object) -> None:
+        """Path parameters produce a FilePicker with browse dialog."""
         form = ParamForm([ToolParameter(name="file", label="File", type=Path)])
         widget = form._widgets["file"]
-        assert isinstance(widget, QLineEdit)
-        assert widget.placeholderText() == "Enter path..."
+        assert isinstance(widget, FilePicker)
+        assert widget._directory is False
+
+    def test_creates_directory_picker_for_path_dir(self, qtbot: object) -> None:
+        """Path parameters with 'directory' in help produce a directory FilePicker."""
+        form = ParamForm(
+            [ToolParameter(name="output_dir", label="Output", type=Path, help="Output directory for files.")]
+        )
+        widget = form._widgets["output_dir"]
+        assert isinstance(widget, FilePicker)
+        assert widget._directory is True
+
+    def test_creates_multi_path_picker_for_list(self, qtbot: object) -> None:
+        """List parameters produce a MultiPathPicker."""
+        form = ParamForm([ToolParameter(name="inputs", label="Inputs", type=list)])
+        widget = form._widgets["inputs"]
+        assert isinstance(widget, MultiPathPicker)
+
+    def test_get_values_returns_file_picker_path(self, qtbot: object) -> None:
+        """get_values returns Path from FilePicker widgets."""
+        form = ParamForm([ToolParameter(name="file", label="File", type=Path)])
+        widget = form._widgets["file"]
+        assert isinstance(widget, FilePicker)
+        widget._line_edit.setText("/tmp/test.txt")
+        values = form.get_values()
+        assert values["file"] == Path("/tmp/test.txt")
+
+    def test_get_values_returns_list_from_multi_path(self, qtbot: object) -> None:
+        """get_values returns list of Paths from MultiPathPicker widgets."""
+        form = ParamForm([ToolParameter(name="inputs", label="Inputs", type=list)])
+        widget = form._widgets["inputs"]
+        assert isinstance(widget, MultiPathPicker)
+        widget._list.addItem("/tmp/a.png")
+        widget._list.addItem("/tmp/b.png")
+        values = form.get_values()
+        assert values["inputs"] == [Path("/tmp/a.png"), Path("/tmp/b.png")]
 
     def test_get_values_returns_all_params(self, qtbot: object) -> None:
         """get_values collects current values from all widgets."""
@@ -173,3 +208,34 @@ class TestFormatSelector:
         """Invalid default falls back to first item."""
         selector = FormatSelector(["png", "webp"], default="bmp")
         assert selector.selected_format == "png"
+
+
+class TestMultiPathPicker:
+    """Tests for the multi-path picker widget."""
+
+    def test_initial_paths_empty(self, qtbot: object) -> None:
+        """Paths list is empty on creation."""
+        picker = MultiPathPicker()
+        assert picker.paths == []
+
+    def test_paths_returns_added_items(self, qtbot: object) -> None:
+        """Paths property returns all added items."""
+        picker = MultiPathPicker()
+        picker._list.addItem("/tmp/a.png")
+        picker._list.addItem("/tmp/b.png")
+        assert picker.paths == [Path("/tmp/a.png"), Path("/tmp/b.png")]
+
+    def test_clear_removes_all(self, qtbot: object) -> None:
+        """Clear button removes all entries."""
+        picker = MultiPathPicker()
+        picker._list.addItem("/tmp/a.png")
+        picker._list.addItem("/tmp/b.png")
+        picker._on_clear()
+        assert picker.paths == []
+
+    def test_no_duplicate_paths(self, qtbot: object) -> None:
+        """Duplicate paths are not added."""
+        picker = MultiPathPicker()
+        picker._list.addItem("/tmp/a.png")
+        assert not picker._contains("/tmp/b.png")
+        assert picker._contains("/tmp/a.png")
