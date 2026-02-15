@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -97,9 +98,16 @@ class FrameExtractorTool(BaseTool):
         Returns:
             An ``ExtractionResult`` with output directory, count, and paths.
         """
+        raw_output_dir = params.get("output_dir")
+        if raw_output_dir is None:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = Path(params["video_path"]).parent / f"frames-{timestamp}"
+        else:
+            output_dir = Path(raw_output_dir)
+
         return extract_frames(
             video_path=params["video_path"],
-            output_dir=params["output_dir"],
+            output_dir=output_dir,
             interval_ms=params.get("interval_ms", 500),
             fmt=params.get("format", "webp"),
             quality=params.get("quality"),

@@ -8,6 +8,7 @@ from typing import Any
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
     QSpinBox,
@@ -18,6 +19,8 @@ from game_toolbox.core.base_tool import ToolParameter
 from game_toolbox.gui.widgets.file_picker import FilePicker
 from game_toolbox.gui.widgets.multi_path_picker import MultiPathPicker
 
+_NOT_SET = "Not set"
+
 
 class ParamForm(QWidget):
     """Dynamically generated form based on ``ToolParameter`` definitions.
@@ -25,7 +28,8 @@ class ParamForm(QWidget):
     Each parameter type maps to an appropriate Qt widget:
 
     - ``str`` → ``QLineEdit``
-    - ``int`` → ``QSpinBox``
+    - ``int`` → ``QSpinBox`` (with "Not set" for nullable)
+    - ``float`` → ``QDoubleSpinBox`` (with "Not set" for nullable)
     - ``bool`` → ``QCheckBox``
     - ``Path`` → ``FilePicker`` (with browse dialog)
     - ``list`` → ``MultiPathPicker`` (multi-file/folder selection)
@@ -45,11 +49,13 @@ class ParamForm(QWidget):
         """
         super().__init__(parent)
         self._widgets: dict[str, QWidget] = {}
+        self._params: dict[str, ToolParameter] = {}
         form = QFormLayout(self)
 
         for param in parameters:
             widget = self._create_widget(param)
             self._widgets[param.name] = widget
+            self._params[param.name] = param
             form.addRow(param.label, widget)
 
     def get_values(self) -> dict[str, Any]:
@@ -60,8 +66,12 @@ class ParamForm(QWidget):
         """
         values: dict[str, Any] = {}
         for name, widget in self._widgets.items():
-            if isinstance(widget, QSpinBox):
-                values[name] = widget.value()
+            param = self._params[name]
+            if isinstance(widget, (QDoubleSpinBox, QSpinBox)):
+                if widget.specialValueText() and widget.value() == widget.minimum():
+                    values[name] = None
+                else:
+                    values[name] = widget.value()
             elif isinstance(widget, QCheckBox):
                 values[name] = widget.isChecked()
             elif isinstance(widget, QComboBox):
@@ -71,7 +81,11 @@ class ParamForm(QWidget):
             elif isinstance(widget, FilePicker):
                 values[name] = widget.path
             elif isinstance(widget, QLineEdit):
-                values[name] = widget.text()
+                text = widget.text()
+                if text == "" and param.default is None:
+                    values[name] = None
+                else:
+                    values[name] = text
         return values
 
     @staticmethod
@@ -99,15 +113,42 @@ class ParamForm(QWidget):
 
         if param.type is int:
             spin = QSpinBox()
-            if param.min_value is not None:
-                spin.setMinimum(int(param.min_value))
+            nullable = param.default is None
+            real_min = int(param.min_value) if param.min_value is not None else 0
+            if nullable:
+                spin.setMinimum(real_min - 1)
+                spin.setSpecialValueText(_NOT_SET)
+            else:
+                spin.setMinimum(real_min)
             if param.max_value is not None:
                 spin.setMaximum(int(param.max_value))
             else:
                 spin.setMaximum(999_999)
-            if param.default is not None:
+            if nullable:
+                spin.setValue(spin.minimum())
+            elif param.default is not None:
                 spin.setValue(int(param.default))
             return spin
+
+        if param.type is float:
+            dspin = QDoubleSpinBox()
+            dspin.setDecimals(1)
+            nullable = param.default is None
+            float_min = float(param.min_value) if param.min_value is not None else 0.0
+            if nullable:
+                dspin.setMinimum(float_min - 1.0)
+                dspin.setSpecialValueText(_NOT_SET)
+            else:
+                dspin.setMinimum(float_min)
+            if param.max_value is not None:
+                dspin.setMaximum(float(param.max_value))
+            else:
+                dspin.setMaximum(999_999.0)
+            if nullable:
+                dspin.setValue(dspin.minimum())
+            elif param.default is not None:
+                dspin.setValue(float(param.default))
+            return dspin
 
         if param.type is list:
             multi_picker = MultiPathPicker()

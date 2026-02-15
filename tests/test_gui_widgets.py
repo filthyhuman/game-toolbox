@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox
+from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QSpinBox
 
 from game_toolbox.core.base_tool import ToolParameter
 from game_toolbox.gui.widgets.file_picker import FilePicker
@@ -121,6 +121,80 @@ class TestParamForm:
         widget = form._widgets["x"]
         assert isinstance(widget, QLineEdit)
         assert widget.toolTip() == "some help"
+
+    def test_nullable_int_shows_not_set(self, qtbot: object) -> None:
+        """Nullable int parameter uses specialValueText 'Not set'."""
+        form = ParamForm(
+            [ToolParameter(name="quality", label="Quality", type=int, default=None, min_value=1, max_value=100)]
+        )
+        widget = form._widgets["quality"]
+        assert isinstance(widget, QSpinBox)
+        assert widget.specialValueText() == "Not set"
+        assert widget.value() == widget.minimum()
+        values = form.get_values()
+        assert values["quality"] is None
+
+    def test_nullable_int_returns_value_when_set(self, qtbot: object) -> None:
+        """Nullable int returns numeric value when user changes from 'Not set'."""
+        form = ParamForm([ToolParameter(name="max_frames", label="Max", type=int, default=None, min_value=1)])
+        widget = form._widgets["max_frames"]
+        assert isinstance(widget, QSpinBox)
+        widget.setValue(10)
+        values = form.get_values()
+        assert values["max_frames"] == 10
+
+    def test_creates_double_spin_for_float(self, qtbot: object) -> None:
+        """Float parameters produce a QDoubleSpinBox."""
+        form = ParamForm(
+            [ToolParameter(name="tolerance", label="Tol", type=float, default=30.0, min_value=0.0, max_value=100.0)]
+        )
+        widget = form._widgets["tolerance"]
+        assert isinstance(widget, QDoubleSpinBox)
+        assert widget.value() == 30.0
+        assert widget.minimum() == 0.0
+        assert widget.maximum() == 100.0
+
+    def test_nullable_float_shows_not_set(self, qtbot: object) -> None:
+        """Nullable float parameter uses specialValueText 'Not set'."""
+        form = ParamForm([ToolParameter(name="percent", label="Percent", type=float, default=None, min_value=0.1)])
+        widget = form._widgets["percent"]
+        assert isinstance(widget, QDoubleSpinBox)
+        assert widget.specialValueText() == "Not set"
+        values = form.get_values()
+        assert values["percent"] is None
+
+    def test_nullable_float_returns_value_when_set(self, qtbot: object) -> None:
+        """Nullable float returns numeric value when user changes from 'Not set'."""
+        form = ParamForm([ToolParameter(name="percent", label="Percent", type=float, default=None, min_value=0.1)])
+        widget = form._widgets["percent"]
+        assert isinstance(widget, QDoubleSpinBox)
+        widget.setValue(50.0)
+        values = form.get_values()
+        assert values["percent"] == 50.0
+
+    def test_nullable_string_returns_none_for_empty(self, qtbot: object) -> None:
+        """String param with default=None returns None when empty."""
+        form = ParamForm([ToolParameter(name="color", label="Color", type=str, default=None)])
+        widget = form._widgets["color"]
+        assert isinstance(widget, QLineEdit)
+        assert widget.text() == ""
+        values = form.get_values()
+        assert values["color"] is None
+
+    def test_non_nullable_string_returns_empty_string(self, qtbot: object) -> None:
+        """String param with default='' returns '' when empty."""
+        form = ParamForm([ToolParameter(name="label", label="Label", type=str, default="")])
+        widget = form._widgets["label"]
+        assert isinstance(widget, QLineEdit)
+        values = form.get_values()
+        assert values["label"] == ""
+
+    def test_float_default_max_without_max_value(self, qtbot: object) -> None:
+        """Float spin box uses 999999.0 as max when no max_value is set."""
+        form = ParamForm([ToolParameter(name="val", label="Val", type=float, default=1.0)])
+        widget = form._widgets["val"]
+        assert isinstance(widget, QDoubleSpinBox)
+        assert widget.maximum() == 999_999.0
 
 
 class TestProgressPanel:
