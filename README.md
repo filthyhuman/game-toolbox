@@ -224,6 +224,58 @@ result = chroma_key_batch(
 See the [Chroma Key README](src/game_toolbox/tools/chroma_key/README.md)
 for detailed parameter documentation.
 
+### Animation Cropper
+
+Analyses transparent animation frames, computes the union bounding box of all
+non-transparent content across all frames, suggests an optimal power-of-two crop
+size, and centre-crops all frames to a user-specified size. If the crop window
+exceeds the source dimensions, frames are padded with transparency.
+
+#### CLI Usage
+
+```bash
+# Analyse only (prints suggested crop size)
+uv run game-toolbox animation-cropper frames/
+
+# Crop all frames to 128x128
+uv run game-toolbox animation-cropper frames/ -W 128 -H 128
+
+# Custom output directory and WebP format
+uv run game-toolbox animation-cropper frames/ -W 64 -H 64 -o trimmed/ -f webp
+```
+
+#### CLI Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--width` | `-W` | | Crop width in pixels. Omit for analyse-only mode. |
+| `--height` | `-H` | | Crop height in pixels. Omit for analyse-only mode. |
+| `--output` | `-o` | `cropped/` | Output directory. Default: `cropped/` next to first input. |
+| `--format` | `-f` | `png` | Output format: `png`, `webp` (must support transparency). |
+
+#### Library Usage
+
+```python
+from pathlib import Path
+from game_toolbox.tools.animation_cropper.logic import analyze_only, crop_batch
+
+# Analyse only
+result = analyze_only([Path("frame_01.png"), Path("frame_02.png")])
+print(f"Suggested: {result.suggested_width}x{result.suggested_height}")
+
+# Crop all frames
+result = crop_batch(
+    input_paths=[Path("frame_01.png"), Path("frame_02.png")],
+    output_dir=Path("cropped"),
+    width=128,
+    height=128,
+)
+print(f"Cropped {result.count} frames")
+```
+
+See the [Animation Cropper README](src/game_toolbox/tools/animation_cropper/README.md)
+for detailed parameter documentation.
+
 ### Sprite Sheet Generator
 
 Packs multiple images into a single sprite sheet atlas with metadata. Supports
@@ -283,7 +335,7 @@ Presentation (CLI / GUI / Library import)
         |
     BaseTool ABC (Template Method pattern)
         |
-  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, ...)
+  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, animation_cropper, ...)
 ```
 
 Each tool is a self-contained sub-package under `src/game_toolbox/tools/` with
@@ -326,7 +378,8 @@ game-toolbox/
 │       ├── frame_extractor/
 │       ├── image_resizer/
 │       ├── chroma_key/
-│       └── sprite_sheet/
+│       ├── sprite_sheet/
+│       └── animation_cropper/
 ├── tests/             # Integration tests
 ├── docs/              # API reference documentation
 └── pyproject.toml     # Single source of truth for build, lint, type check

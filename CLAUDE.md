@@ -61,7 +61,7 @@ game-toolbox/                          ← repo root (already exists)
 │       │   ├── base_tool.py           ← BaseTool ABC — THE contract every tool implements
 │       │   ├── registry.py            ← ToolRegistry singleton — auto-discovers tools
 │       │   ├── pipeline.py            ← Pipeline & PipelineStage — chains tools via ports
-│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult
+│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult, CropResult
 │       │   ├── config.py              ← ConfigManager — per-tool + global settings (TOML-backed)
 │       │   ├── events.py              ← EventBus — decoupled Observer for progress / status / errors
 │       │   └── exceptions.py          ← ToolError, PipelineError, ValidationError hierarchy
@@ -115,6 +115,14 @@ game-toolbox/                          ← repo root (already exists)
 │           │       └── …
 │           │
 │           ├── sprite_sheet/          ← sprite sheet atlas generation
+│           │   ├── __init__.py
+│           │   ├── tool.py
+│           │   ├── logic.py
+│           │   ├── README.md
+│           │   └── tests/
+│           │       └── …
+│           │
+│           ├── animation_cropper/     ← animation frame analysis & centre-cropping
 │           │   ├── __init__.py
 │           │   ├── tool.py
 │           │   ├── logic.py
@@ -509,6 +517,7 @@ MainWindow
 ├── QSplitter
 │   ├── Sidebar (QListWidget)            ← grouped by tool.category
 │   │   ├── 📁 Image                     (bold, non-selectable header)
+│   │   │   ├── Animation Cropper
 │   │   │   ├── Chroma Key
 │   │   │   ├── Image Resizer
 │   │   │   └── Sprite Sheet
@@ -517,12 +526,13 @@ MainWindow
 │   │   └── 📁 Pipelines
 │   │       └── Pipeline Editor
 │   └── QStackedWidget                   ← one ToolPage per tool
-│       ├── ToolPage[ChromaKey]
+│       ├── ToolPage[AnimationCropper]
 │       │   ├── QLabel <h2> + description
 │       │   ├── ParamForm (auto-generated from define_parameters())
 │       │   ├── [Run] button
 │       │   ├── ProgressPanel (bar + status label)
 │       │   └── QTextEdit log (read-only, monospace)
+│       ├── ToolPage[ChromaKey]
 │       ├── ToolPage[ImageResizer]
 │       ├── ToolPage[SpriteSheet]
 │       ├── ToolPage[FrameExtractor]
@@ -642,7 +652,12 @@ When working on this project, Claude must:
 4. Declare `input_types` / `output_types` for pipeline compatibility.
 5. Write ≥ 3 test cases: happy path, edge case, error case.
 6. Add a `README.md` inside the tool folder describing usage.
-7. Run `uv run ruff check && uv run mypy src/ && uv run pytest` before considering the task done.
+7. Add a CLI sub-command in `cli/main.py` following the existing pattern.
+8. Update documentation:
+   - `README.md` — add the tool to the "Available Tools" section (CLI usage, options table, library usage, link to tool README).
+   - `docs/api.md` — add the tool to the package structure tree and add full API docs (logic functions, tool class, parameters, usage example).
+   - `CLAUDE.md` — add the tool to the repository layout tree (section 3), the GUI sidebar tree (section 10), and update any relevant datatypes references.
+9. Run `uv run ruff check && uv run mypy src/ && uv run pytest` before considering the task done.
 
 ### When modifying core/
 

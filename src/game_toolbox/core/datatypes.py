@@ -64,6 +64,16 @@ class ChromaKeyResult:
 
 
 @dataclass(frozen=True)
+class CropResult:
+    """Result of an animation crop operation."""
+
+    images: tuple[ImageData, ...]
+    count: int
+    suggested_width: int
+    suggested_height: int
+
+
+@dataclass(frozen=True)
 class SpriteFrame:
     """Position and size of a single frame within a sprite sheet."""
 

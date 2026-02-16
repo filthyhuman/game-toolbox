@@ -217,6 +217,66 @@ def chroma_key_cmd(
     click.echo(f"Keyed {result.count} images ({location})")
 
 
+@cli.command(name="animation-cropper")
+@click.argument("inputs", nargs=-1, required=True, type=click.Path(exists=True, resolve_path=True))
+@click.option("-W", "--width", type=int, default=None, help="Crop width in pixels (omit for analyse-only).")
+@click.option("-H", "--height", type=int, default=None, help="Crop height in pixels (omit for analyse-only).")
+@click.option(
+    "-o",
+    "--output",
+    "output_dir",
+    type=click.Path(resolve_path=True),
+    default=None,
+    help="Output directory (default: 'cropped/' next to first input).",
+)
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    default="png",
+    show_default=True,
+    type=click.Choice(["png", "webp"]),
+    help="Output image format.",
+)
+def animation_cropper_cmd(
+    inputs: tuple[str, ...],
+    width: int | None,
+    height: int | None,
+    output_dir: str | None,
+    fmt: str,
+) -> None:
+    """Analyse and centre-crop transparent animation frames.
+
+    INPUTS can be image files, directories, or a mix of both.
+    Omit --width and --height to analyse only (prints suggested crop size).
+    """
+    from game_toolbox.core.events import EventBus
+    from game_toolbox.tools.animation_cropper import AnimationCropperTool
+
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}/{kw['total']:5d}] {kw['message']}"))
+    bus.subscribe("log", lambda **kw: click.echo(f"  {kw['message']}"))
+
+    tool = AnimationCropperTool(event_bus=bus)
+    result = tool.run(
+        params={
+            "inputs": [Path(p) for p in inputs],
+            "output_dir": Path(output_dir) if output_dir else None,
+            "width": width,
+            "height": height,
+            "output_format": fmt,
+        },
+    )
+
+    if result.count == 0:
+        click.echo(f"Suggested crop size: {result.suggested_width}x{result.suggested_height}")
+    else:
+        click.echo(
+            f"Cropped {result.count} frames to {width}x{height} "
+            f"(suggested: {result.suggested_width}x{result.suggested_height})"
+        )
+
+
 @cli.command(name="sprite-sheet")
 @click.argument("inputs", nargs=-1, required=True, type=click.Path(exists=True, resolve_path=True))
 @click.option(

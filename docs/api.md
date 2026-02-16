@@ -31,7 +31,8 @@ game_toolbox
     ├── frame_extractor     # Video frame extraction
     ├── image_resizer       # Image resizing (exact, fit, fill, percent)
     ├── chroma_key          # Chroma key background removal
-    └── sprite_sheet        # Sprite sheet atlas generation
+    ├── sprite_sheet        # Sprite sheet atlas generation
+    └── animation_cropper   # Animation frame analysis and centre-cropping
 ```
 
 ---
@@ -332,6 +333,15 @@ pipelines.
 | `images` | `tuple[ImageData, ...]` | Metadata for each keyed image. |
 | `count` | `int` | Number of images processed. |
 | `in_place` | `bool` | Whether originals were overwritten. |
+
+### `CropResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `images` | `tuple[ImageData, ...]` | Metadata for each cropped image (empty in analyse-only mode). |
+| `count` | `int` | Number of images cropped (0 in analyse-only mode). |
+| `suggested_width` | `int` | Suggested power-of-two crop width from union bounding box. |
+| `suggested_height` | `int` | Suggested power-of-two crop height from union bounding box. |
 
 ### `SpriteFrame`
 
@@ -987,5 +997,154 @@ result = tool.run(params={
     "columns": 4,
     "padding": 1,
     "metadata_format": "json",
+})
+```
+
+---
+
+## `game_toolbox.tools.animation_cropper`
+
+### `animation_cropper.logic`
+
+#### `analyze_bounding_box`
+
+```python
+def analyze_bounding_box(image_path: Path) -> tuple[int, int, int, int]
+```
+
+Compute the bounding box of non-transparent content in an RGBA image. Uses
+NumPy to find rows and columns with any non-zero alpha.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `image_path` | `Path` | *required* | Path to an image file. |
+
+**Returns:** `(x, y, width, height)` tuple. Returns `(0, 0, 0, 0)` for fully transparent images.
+
+**Raises:** `ToolError` if the image cannot be opened.
+
+#### `compute_union_bbox`
+
+```python
+def compute_union_bbox(bboxes: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]
+```
+
+Compute the union bounding box of multiple bounding boxes. Empty bounding
+boxes `(0, 0, 0, 0)` are skipped.
+
+**Returns:** `(x, y, width, height)` of the union. Returns `(0, 0, 0, 0)` if
+all inputs are empty or the list is empty.
+
+#### `crop_frame`
+
+```python
+def crop_frame(
+    image_path: Path,
+    output_path: Path,
+    width: int,
+    height: int,
+    output_format: str = "png",
+) -> ImageData
+```
+
+Centre-crop a single frame to the given dimensions. The crop region is
+centred on the image centre. If the crop window exceeds the source
+dimensions, the source is pasted onto a transparent canvas of the target size.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `image_path` | `Path` | *required* | Source image path. |
+| `output_path` | `Path` | *required* | Destination path (parent dir created automatically). |
+| `width` | `int` | *required* | Target crop width in pixels. |
+| `height` | `int` | *required* | Target crop height in pixels. |
+| `output_format` | `str` | `"png"` | Output format: `"png"` or `"webp"`. |
+
+**Returns:** `ImageData` with the output path, dimensions, and format.
+
+**Raises:** `ToolError` if the image cannot be opened or saved.
+
+#### `analyze_only`
+
+```python
+def analyze_only(
+    input_paths: list[Path],
+    event_bus: EventBus | None = None,
+) -> CropResult
+```
+
+Analyse all frames and return the suggested crop size without writing files.
+
+**Returns:** `CropResult` with `count=0`, empty `images`, and suggested dimensions.
+
+#### `crop_batch`
+
+```python
+def crop_batch(
+    input_paths: list[Path],
+    output_dir: Path,
+    width: int,
+    height: int,
+    output_format: str = "png",
+    event_bus: EventBus | None = None,
+) -> CropResult
+```
+
+Two-pass operation: first analyse all frames to compute the union bounding
+box and suggested size, then centre-crop each frame.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_paths` | `list[Path]` | *required* | Image file paths to process. |
+| `output_dir` | `Path` | *required* | Directory for cropped images. |
+| `width` | `int` | *required* | Target crop width. |
+| `height` | `int` | *required* | Target crop height. |
+| `output_format` | `str` | `"png"` | Output format: `"png"` or `"webp"`. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `CropResult` with cropped image metadata and suggested size.
+
+### `animation_cropper.tool`
+
+#### `AnimationCropperTool`
+
+```python
+class AnimationCropperTool(BaseTool):
+```
+
+| Attribute | Value |
+|-----------|-------|
+| `name` | `"animation_cropper"` |
+| `display_name` | `"Animation Cropper"` |
+| `category` | `"Image"` |
+| `input_types()` | `[PathList]` |
+| `output_types()` | `[PathList]` |
+
+Wraps `analyze_only()` and `crop_batch()` via the `BaseTool` template method
+lifecycle. When `width` and `height` are both `None`, runs in analyse-only
+mode. Accepts `PathList` as pipeline input.
+
+```python
+from pathlib import Path
+from game_toolbox.tools.animation_cropper import AnimationCropperTool
+
+tool = AnimationCropperTool()
+
+# Analyse only
+result = tool.run(params={
+    "inputs": [Path("frames/")],
+    "output_dir": None,
+    "width": None,
+    "height": None,
+    "output_format": "png",
+})
+print(f"Suggested: {result.suggested_width}x{result.suggested_height}")
+
+# Crop
+result = tool.run(params={
+    "inputs": [Path("frames/")],
+    "output_dir": Path("cropped/"),
+    "width": 128,
+    "height": 128,
+    "output_format": "png",
 })
 ```
