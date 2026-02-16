@@ -94,3 +94,12 @@ class SpriteSheetResult:
     rows: int
     padding: int
     metadata_path: Path
+
+
+@dataclass(frozen=True)
+class SpriteExtractionResult:
+    """Result of a sprite extraction operation."""
+
+    output_dir: Path
+    images: tuple[ImageData, ...]
+    count: int

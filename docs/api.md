@@ -32,6 +32,7 @@ game_toolbox
     ├── image_resizer       # Image resizing (exact, fit, fill, percent)
     ├── chroma_key          # Chroma key background removal
     ├── sprite_sheet        # Sprite sheet atlas generation
+    ├── sprite_extractor    # Sprite extraction from sprite sheets
     └── animation_cropper   # Animation frame analysis and centre-cropping
 ```
 
@@ -363,6 +364,14 @@ pipelines.
 | `rows` | `int` | Number of rows in the grid. |
 | `padding` | `int` | Pixel padding between frames. |
 | `metadata_path` | `Path` | Path to the generated metadata file. |
+
+### `SpriteExtractionResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `output_dir` | `Path` | Directory containing extracted sprites. |
+| `images` | `tuple[ImageData, ...]` | Metadata for each extracted sprite. |
+| `count` | `int` | Number of sprites extracted. |
 
 ---
 
@@ -997,6 +1006,168 @@ result = tool.run(params={
     "columns": 4,
     "padding": 1,
     "metadata_format": "json",
+})
+```
+
+---
+
+## `game_toolbox.tools.sprite_extractor`
+
+### `sprite_extractor.logic`
+
+#### `validate_extraction_params`
+
+```python
+def validate_extraction_params(
+    *,
+    mode: str,
+    output_format: str,
+    frame_width: int | None = None,
+    frame_height: int | None = None,
+    columns: int | None = None,
+    rows: int | None = None,
+    metadata_path: Path | None = None,
+) -> None
+```
+
+Validate sprite extraction parameters before processing.
+
+**Raises:** `ValidationError` if parameters are invalid for the chosen mode.
+
+#### `extract_grid`
+
+```python
+def extract_grid(
+    sheet_path: Path,
+    output_dir: Path,
+    base_name: str,
+    *,
+    frame_width: int | None = None,
+    frame_height: int | None = None,
+    columns: int | None = None,
+    rows: int | None = None,
+    output_format: str = "png",
+    event_bus: EventBus | None = None,
+) -> SpriteExtractionResult
+```
+
+Extract sprites from a sheet using a regular grid layout. Provide either
+`(frame_width, frame_height)` or `(columns, rows)`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sheet_path` | `Path` | *required* | Path to the sprite sheet image. |
+| `output_dir` | `Path` | *required* | Output directory for extracted sprites. |
+| `base_name` | `str` | *required* | Base filename for output sprites. |
+| `frame_width` | `int \| None` | `None` | Width of each grid cell. |
+| `frame_height` | `int \| None` | `None` | Height of each grid cell. |
+| `columns` | `int \| None` | `None` | Number of grid columns. |
+| `rows` | `int \| None` | `None` | Number of grid rows. |
+| `output_format` | `str` | `"png"` | Output format: `bmp`, `png`, `tiff`, `webp`. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `SpriteExtractionResult` with extracted sprite metadata.
+
+**Raises:** `ToolError` if the image cannot be opened.
+
+#### `extract_from_metadata`
+
+```python
+def extract_from_metadata(
+    sheet_path: Path,
+    metadata_path: Path,
+    output_dir: Path,
+    base_name: str,
+    *,
+    output_format: str = "png",
+    event_bus: EventBus | None = None,
+) -> SpriteExtractionResult
+```
+
+Extract sprites using JSON metadata from the Sprite Sheet Generator tool.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sheet_path` | `Path` | *required* | Path to the sprite sheet image. |
+| `metadata_path` | `Path` | *required* | Path to the JSON metadata file. |
+| `output_dir` | `Path` | *required* | Output directory for extracted sprites. |
+| `base_name` | `str` | *required* | Base filename for output sprites. |
+| `output_format` | `str` | `"png"` | Output format. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `SpriteExtractionResult` with extracted sprite metadata.
+
+**Raises:** `ToolError` if the image or metadata cannot be read.
+
+#### `extract_auto_detect`
+
+```python
+def extract_auto_detect(
+    sheet_path: Path,
+    output_dir: Path,
+    base_name: str,
+    *,
+    output_format: str = "png",
+    min_area: int = 16,
+    event_bus: EventBus | None = None,
+) -> SpriteExtractionResult
+```
+
+Auto-detect and extract sprites using alpha-based connected components.
+Regions smaller than `min_area` are filtered as noise. Results are sorted
+top-to-bottom, left-to-right.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sheet_path` | `Path` | *required* | Path to the sprite sheet image. |
+| `output_dir` | `Path` | *required* | Output directory for extracted sprites. |
+| `base_name` | `str` | *required* | Base filename for output sprites. |
+| `output_format` | `str` | `"png"` | Output format. |
+| `min_area` | `int` | `16` | Minimum bounding-box area to keep. |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `SpriteExtractionResult` with extracted sprite metadata.
+
+**Raises:** `ToolError` if the image cannot be opened.
+
+#### Constants
+
+| Name | Type | Description |
+|------|------|-------------|
+| `VALID_OUTPUT_FORMATS` | `frozenset[str]` | Supported output formats (`bmp`, `png`, `tiff`, `webp`). |
+
+### `sprite_extractor.tool`
+
+#### `SpriteExtractorTool`
+
+```python
+class SpriteExtractorTool(BaseTool):
+```
+
+| Attribute | Value |
+|-----------|-------|
+| `name` | `"sprite_extractor"` |
+| `display_name` | `"Sprite Extractor"` |
+| `category` | `"Image"` |
+| `input_types()` | `[ImageData]` |
+| `output_types()` | `[PathList]` |
+
+Wraps `extract_grid()`, `extract_from_metadata()`, and `extract_auto_detect()`
+via the `BaseTool` template method lifecycle. Accepts `ImageData` as pipeline
+input (e.g. from Sprite Sheet Generator).
+
+```python
+from pathlib import Path
+from game_toolbox.tools.sprite_extractor import SpriteExtractorTool
+
+tool = SpriteExtractorTool()
+result = tool.run(params={
+    "input": Path("sheet.png"),
+    "output_dir": Path("sprites/"),
+    "mode": "grid",
+    "frame_width": 32,
+    "frame_height": 32,
+    "output_format": "png",
 })
 ```
 

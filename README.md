@@ -324,6 +324,74 @@ print(f"Metadata: {result.metadata_path}")
 See the [Sprite Sheet README](src/game_toolbox/tools/sprite_sheet/README.md)
 for detailed parameter documentation.
 
+### Sprite Extractor
+
+Extracts individual sprites from a sprite sheet image. Inverse of the Sprite
+Sheet Generator. Supports three extraction modes: grid-based (frame size or
+column/row count), auto-detect (alpha-based connected components via OpenCV),
+and metadata-based (JSON from the Sprite Sheet Generator).
+
+#### CLI Usage
+
+```bash
+# Grid mode: extract 32x32 sprites
+uv run game-toolbox sprite-extractor sheet.png -m grid -W 32 -H 32
+
+# Grid mode: extract from a 4x4 grid
+uv run game-toolbox sprite-extractor sheet.png -m grid -c 4 -r 4
+
+# Auto-detect sprites by alpha
+uv run game-toolbox sprite-extractor sheet.png -m auto
+
+# Use metadata from sprite-sheet tool
+uv run game-toolbox sprite-extractor sheet.png -m metadata --metadata sheet.json
+
+# Custom output directory and format
+uv run game-toolbox sprite-extractor sheet.png -m grid -W 32 -H 32 -f webp -o output/
+```
+
+#### CLI Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--name` | `-n` | input stem | Base filename for output sprites. |
+| `--mode` | `-m` | `grid` | Extraction mode: `grid`, `auto`, `metadata`. |
+| `--width` | `-W` | | Frame width (grid mode, with `-H`). |
+| `--height` | `-H` | | Frame height (grid mode, with `-W`). |
+| `--columns` | `-c` | | Columns (grid mode, with `-r`). |
+| `--rows` | `-r` | | Rows (grid mode, with `-c`). |
+| `--format` | `-f` | `png` | Output format: `bmp`, `png`, `tiff`, `webp`. |
+| `--output` | `-o` | `sprites/` | Output directory. |
+| `--metadata` | | | JSON metadata file (metadata mode). |
+
+#### Library Usage
+
+```python
+from pathlib import Path
+from game_toolbox.tools.sprite_extractor.logic import (
+    extract_grid,
+    extract_auto_detect,
+    extract_from_metadata,
+)
+
+# Grid extraction by frame size
+result = extract_grid(
+    Path("sheet.png"),
+    Path("output/"),
+    "sprite",
+    frame_width=32,
+    frame_height=32,
+)
+print(f"Extracted {result.count} sprites")
+
+# Auto-detection
+result = extract_auto_detect(Path("sheet.png"), Path("output/"), "sprite")
+print(f"Detected {result.count} sprites")
+```
+
+See the [Sprite Extractor README](src/game_toolbox/tools/sprite_extractor/README.md)
+for detailed parameter documentation.
+
 ## Architecture
 
 Game Toolbox follows a layered architecture with strict separation of concerns:
@@ -335,7 +403,7 @@ Presentation (CLI / GUI / Library import)
         |
     BaseTool ABC (Template Method pattern)
         |
-  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, animation_cropper, ...)
+  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, sprite_extractor, animation_cropper, ...)
 ```
 
 Each tool is a self-contained sub-package under `src/game_toolbox/tools/` with
@@ -379,6 +447,7 @@ game-toolbox/
 │       ├── image_resizer/
 │       ├── chroma_key/
 │       ├── sprite_sheet/
+│       ├── sprite_extractor/
 │       └── animation_cropper/
 ├── tests/             # Integration tests
 ├── docs/              # API reference documentation

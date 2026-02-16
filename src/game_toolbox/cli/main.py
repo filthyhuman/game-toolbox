@@ -331,3 +331,83 @@ def sprite_sheet_cmd(
         f"({result.sheet.width}x{result.sheet.height}px, "
         f"{len(result.frames)} frames) → {result.sheet.path}"
     )
+
+
+@cli.command(name="sprite-extractor")
+@click.argument("input_image", type=click.Path(exists=True, dir_okay=False, resolve_path=True))
+@click.option("-n", "--name", "base_name", default=None, help="Base filename for output sprites.")
+@click.option(
+    "-m",
+    "--mode",
+    default="grid",
+    show_default=True,
+    type=click.Choice(["grid", "auto", "metadata"]),
+    help="Extraction mode.",
+)
+@click.option("-W", "--width", "frame_width", type=int, default=None, help="Frame width in pixels (grid mode).")
+@click.option("-H", "--height", "frame_height", type=int, default=None, help="Frame height in pixels (grid mode).")
+@click.option("-c", "--columns", type=int, default=None, help="Number of columns (grid mode).")
+@click.option("-r", "--rows", type=int, default=None, help="Number of rows (grid mode).")
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    default="png",
+    show_default=True,
+    type=click.Choice(["bmp", "png", "tiff", "webp"]),
+    help="Output image format.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_dir",
+    type=click.Path(resolve_path=True),
+    default=None,
+    help="Output directory (default: sprites/ next to input).",
+)
+@click.option(
+    "--metadata",
+    "metadata_path",
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True),
+    default=None,
+    help="Path to JSON metadata file (metadata mode).",
+)
+def sprite_extractor_cmd(
+    input_image: str,
+    base_name: str | None,
+    mode: str,
+    frame_width: int | None,
+    frame_height: int | None,
+    columns: int | None,
+    rows: int | None,
+    fmt: str,
+    output_dir: str | None,
+    metadata_path: str | None,
+) -> None:
+    """Extract individual sprites from a sprite sheet image.
+
+    Supports grid-based, auto-detect, and metadata-based extraction modes.
+    """
+    from game_toolbox.core.events import EventBus
+    from game_toolbox.tools.sprite_extractor import SpriteExtractorTool
+
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}/{kw['total']:5d}] {kw['message']}"))
+
+    tool = SpriteExtractorTool(event_bus=bus)
+    result = tool.run(
+        params={
+            "input": Path(input_image),
+            "output_dir": Path(output_dir) if output_dir else None,
+            "base_name": base_name,
+            "mode": mode,
+            "frame_width": frame_width,
+            "frame_height": frame_height,
+            "columns": columns,
+            "rows": rows,
+            "output_format": fmt,
+            "metadata_path": Path(metadata_path) if metadata_path else None,
+        },
+    )
+
+    click.echo(f"Extracted {result.count} sprites to {result.output_dir}")

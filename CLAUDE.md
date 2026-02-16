@@ -61,7 +61,7 @@ game-toolbox/                          ← repo root (already exists)
 │       │   ├── base_tool.py           ← BaseTool ABC — THE contract every tool implements
 │       │   ├── registry.py            ← ToolRegistry singleton — auto-discovers tools
 │       │   ├── pipeline.py            ← Pipeline & PipelineStage — chains tools via ports
-│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult, CropResult
+│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult, CropResult, SpriteExtractionResult
 │       │   ├── config.py              ← ConfigManager — per-tool + global settings (TOML-backed)
 │       │   ├── events.py              ← EventBus — decoupled Observer for progress / status / errors
 │       │   └── exceptions.py          ← ToolError, PipelineError, ValidationError hierarchy
@@ -115,6 +115,14 @@ game-toolbox/                          ← repo root (already exists)
 │           │       └── …
 │           │
 │           ├── sprite_sheet/          ← sprite sheet atlas generation
+│           │   ├── __init__.py
+│           │   ├── tool.py
+│           │   ├── logic.py
+│           │   ├── README.md
+│           │   └── tests/
+│           │       └── …
+│           │
+│           ├── sprite_extractor/      ← sprite extraction from sprite sheets
 │           │   ├── __init__.py
 │           │   ├── tool.py
 │           │   ├── logic.py
@@ -520,6 +528,7 @@ MainWindow
 │   │   │   ├── Animation Cropper
 │   │   │   ├── Chroma Key
 │   │   │   ├── Image Resizer
+│   │   │   ├── Sprite Extractor
 │   │   │   └── Sprite Sheet
 │   │   ├── 📁 Video
 │   │   │   └── Frame Extractor
@@ -534,6 +543,7 @@ MainWindow
 │       │   └── QTextEdit log (read-only, monospace)
 │       ├── ToolPage[ChromaKey]
 │       ├── ToolPage[ImageResizer]
+│       ├── ToolPage[SpriteExtractor]
 │       ├── ToolPage[SpriteSheet]
 │       ├── ToolPage[FrameExtractor]
 │       └── PipelineEditorPage
