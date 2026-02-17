@@ -49,6 +49,15 @@ button, a live progress bar, and a scrollable log area.
 
 ## Available Tools
 
+| Tool | Description |
+|------|-------------|
+| **Frame Extractor** | Extracts frames from video files at configurable time intervals. |
+| **Image Resizer** | Resizes images using exact, fit, fill, or percent modes. |
+| **Chroma Key Remover** | Removes solid-colour backgrounds and replaces them with transparency. |
+| **Animation Cropper** | Analyses animation frames, computes a union bounding box, and centre-crops to a target size. |
+| **Sprite Sheet Generator** | Packs multiple images into a single sprite sheet atlas with metadata. |
+| **Sprite Extractor** | Extracts individual sprites from a sprite sheet using grid, auto-detect, or metadata modes. |
+
 ### Frame Extractor
 
 Extracts frames from video files at configurable time intervals. Frames are
