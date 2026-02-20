@@ -103,3 +103,12 @@ class SpriteExtractionResult:
     output_dir: Path
     images: tuple[ImageData, ...]
     count: int
+
+
+@dataclass(frozen=True)
+class AtlasUnpackResult:
+    """Result of a Cocos2d atlas unpack operation."""
+
+    output_dir: Path
+    images: tuple[ImageData, ...]
+    count: int

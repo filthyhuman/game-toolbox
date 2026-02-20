@@ -57,6 +57,7 @@ button, a live progress bar, and a scrollable log area.
 | **Animation Cropper** | Analyses animation frames, computes a union bounding box, and centre-crops to a target size. |
 | **Sprite Sheet Generator** | Packs multiple images into a single sprite sheet atlas with metadata. |
 | **Sprite Extractor** | Extracts individual sprites from a sprite sheet using grid, auto-detect, or metadata modes. |
+| **Atlas Unpacker** | Extracts sprites from Cocos2d texture atlas files (.plist + .pvr.ccz/.pvr/.png). |
 
 ### Frame Extractor
 
@@ -401,6 +402,61 @@ print(f"Detected {result.count} sprites")
 See the [Sprite Extractor README](src/game_toolbox/tools/sprite_extractor/README.md)
 for detailed parameter documentation.
 
+### Atlas Unpacker
+
+Extracts individual sprites from Cocos2d texture atlas files. Parses `.plist`
+atlas descriptors paired with `.pvr.ccz`, `.pvr`, or `.png` textures. Handles
+CCZ decompression, PVR v2/v3 pixel formats (12+), and sprite rotation.
+
+#### CLI Usage
+
+```bash
+# Extract all sprites from a plist + texture pair
+uv run game-toolbox atlas-unpacker atlas.plist
+
+# Custom output directory
+uv run game-toolbox atlas-unpacker atlas.plist -o sprites/
+
+# Skip already-extracted sprites
+uv run game-toolbox atlas-unpacker atlas.plist --skip-existing
+
+# Dry run — show metadata without extracting
+uv run game-toolbox atlas-unpacker atlas.plist --dry-run
+
+# Use PVRTexToolCLI for PVRTC textures
+uv run game-toolbox atlas-unpacker atlas.plist --pvrtextool /usr/local/bin/PVRTexToolCLI
+```
+
+#### CLI Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--output` | `-o` | `unpacked/` | Output directory for extracted sprites. |
+| `--skip-existing` | | `false` | Skip sprites whose output file already exists. |
+| `--pvrtextool` | | | Path to PVRTexToolCLI (PVRTC textures only). |
+| `--dry-run` | | `false` | Show atlas metadata without extracting sprites. |
+
+#### Library Usage
+
+```python
+from pathlib import Path
+from game_toolbox.tools.atlas_unpacker.logic import extract_atlas, probe_atlas
+
+# Extract all sprites
+result = extract_atlas(
+    Path("GameObjects.plist"),
+    Path("output/sprites"),
+)
+print(f"Extracted {result.count} sprites to {result.output_dir}")
+
+# Dry-run / preview
+info = probe_atlas(Path("GameObjects.plist"))
+print(f"Atlas has {info['frame_count']} frames")
+```
+
+See the [Atlas Unpacker README](src/game_toolbox/tools/atlas_unpacker/README.md)
+for detailed parameter documentation.
+
 ## Architecture
 
 Game Toolbox follows a layered architecture with strict separation of concerns:
@@ -412,7 +468,7 @@ Presentation (CLI / GUI / Library import)
         |
     BaseTool ABC (Template Method pattern)
         |
-  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, sprite_extractor, animation_cropper, ...)
+  Concrete Tools (frame_extractor, image_resizer, chroma_key, sprite_sheet, sprite_extractor, animation_cropper, atlas_unpacker, ...)
 ```
 
 Each tool is a self-contained sub-package under `src/game_toolbox/tools/` with
@@ -457,7 +513,8 @@ game-toolbox/
 │       ├── chroma_key/
 │       ├── sprite_sheet/
 │       ├── sprite_extractor/
-│       └── animation_cropper/
+│       ├── animation_cropper/
+│       └── atlas_unpacker/
 ├── tests/             # Integration tests
 ├── docs/              # API reference documentation
 └── pyproject.toml     # Single source of truth for build, lint, type check

@@ -33,7 +33,8 @@ game_toolbox
     ├── chroma_key          # Chroma key background removal
     ├── sprite_sheet        # Sprite sheet atlas generation
     ├── sprite_extractor    # Sprite extraction from sprite sheets
-    └── animation_cropper   # Animation frame analysis and centre-cropping
+    ├── animation_cropper   # Animation frame analysis and centre-cropping
+    └── atlas_unpacker      # Cocos2d texture atlas extraction
 ```
 
 ---
@@ -370,6 +371,14 @@ pipelines.
 | Field | Type | Description |
 |-------|------|-------------|
 | `output_dir` | `Path` | Directory containing extracted sprites. |
+| `images` | `tuple[ImageData, ...]` | Metadata for each extracted sprite. |
+| `count` | `int` | Number of sprites extracted. |
+
+### `AtlasUnpackResult`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `output_dir` | `Path` | Directory containing extracted atlas sprites. |
 | `images` | `tuple[ImageData, ...]` | Metadata for each extracted sprite. |
 | `count` | `int` | Number of sprites extracted. |
 
@@ -1317,5 +1326,97 @@ result = tool.run(params={
     "width": 128,
     "height": 128,
     "output_format": "png",
+})
+```
+
+---
+
+## `game_toolbox.tools.atlas_unpacker`
+
+### `atlas_unpacker.logic`
+
+#### `validate_atlas_params`
+
+```python
+def validate_atlas_params(
+    *,
+    plist_path: Path | None,
+    output_dir: Path | None,
+) -> None
+```
+
+Validate atlas unpack parameters before processing.
+
+**Raises:** `ValidationError` if the plist path is missing, does not exist, or has wrong extension.
+
+#### `extract_atlas`
+
+```python
+def extract_atlas(
+    plist_path: Path,
+    output_dir: Path,
+    *,
+    skip_existing: bool = False,
+    pvrtextool: Path | None = None,
+    event_bus: EventBus | None = None,
+) -> AtlasUnpackResult
+```
+
+Extract all sprite frames from a Cocos2d `.plist` + texture atlas pair.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `plist_path` | `Path` | *required* | Path to the `.plist` atlas descriptor. |
+| `output_dir` | `Path` | *required* | Output directory (created automatically). |
+| `skip_existing` | `bool` | `False` | Skip sprites whose output file already exists. |
+| `pvrtextool` | `Path \| None` | `None` | Path to PVRTexToolCLI (PVRTC only). |
+| `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |
+
+**Returns:** `AtlasUnpackResult` with output directory, image metadata, and count.
+
+**Raises:** `ToolError` if the texture cannot be found, loaded, or parsed.
+
+#### `probe_atlas`
+
+```python
+def probe_atlas(plist_path: Path) -> dict[str, Any]
+```
+
+Return metadata about an atlas without extracting any images. Useful for
+dry-run / preview in the GUI.
+
+**Returns:** A dict with keys: `plist`, `texture`, `frame_count`,
+`frame_names`, `metadata`.
+
+### `atlas_unpacker.tool`
+
+#### `AtlasUnpackerTool`
+
+```python
+class AtlasUnpackerTool(BaseTool):
+```
+
+| Attribute | Value |
+|-----------|-------|
+| `name` | `"atlas_unpacker"` |
+| `display_name` | `"Atlas Unpacker"` |
+| `category` | `"Image"` |
+| `input_types()` | `[PathList]` |
+| `output_types()` | `[PathList]` |
+
+Wraps `extract_atlas()` and `probe_atlas()` via the `BaseTool` template
+method lifecycle. Accepts `PathList` as pipeline input.
+
+```python
+from pathlib import Path
+from game_toolbox.tools.atlas_unpacker import AtlasUnpackerTool
+
+tool = AtlasUnpackerTool()
+result = tool.run(params={
+    "input": Path("GameObjects.plist"),
+    "output_dir": Path("sprites/"),
+    "skip_existing": False,
+    "pvrtextool": None,
+    "dry_run": False,
 })
 ```

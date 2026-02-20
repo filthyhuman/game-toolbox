@@ -61,7 +61,7 @@ game-toolbox/                          ← repo root (already exists)
 │       │   ├── base_tool.py           ← BaseTool ABC — THE contract every tool implements
 │       │   ├── registry.py            ← ToolRegistry singleton — auto-discovers tools
 │       │   ├── pipeline.py            ← Pipeline & PipelineStage — chains tools via ports
-│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult, CropResult, SpriteExtractionResult
+│       │   ├── datatypes.py           ← shared value objects: ImageData, VideoData, PathList, ResizeResult, CropResult, SpriteExtractionResult, AtlasUnpackResult
 │       │   ├── config.py              ← ConfigManager — per-tool + global settings (TOML-backed)
 │       │   ├── events.py              ← EventBus — decoupled Observer for progress / status / errors
 │       │   └── exceptions.py          ← ToolError, PipelineError, ValidationError hierarchy
@@ -134,6 +134,17 @@ game-toolbox/                          ← repo root (already exists)
 │           │   ├── __init__.py
 │           │   ├── tool.py
 │           │   ├── logic.py
+│           │   ├── README.md
+│           │   └── tests/
+│           │       └── …
+│           │
+│           ├── atlas_unpacker/        ← Cocos2d texture atlas extraction
+│           │   ├── __init__.py
+│           │   ├── tool.py
+│           │   ├── logic.py
+│           │   ├── _plist.py          ← plist parser (internal)
+│           │   ├── _ccz.py            ← CCZ decompressor (internal)
+│           │   ├── _pvr.py            ← PVR v2/v3 decoder (internal)
 │           │   ├── README.md
 │           │   └── tests/
 │           │       └── …
@@ -526,6 +537,7 @@ MainWindow
 │   ├── Sidebar (QListWidget)            ← grouped by tool.category
 │   │   ├── 📁 Image                     (bold, non-selectable header)
 │   │   │   ├── Animation Cropper
+│   │   │   ├── Atlas Unpacker
 │   │   │   ├── Chroma Key
 │   │   │   ├── Image Resizer
 │   │   │   ├── Sprite Extractor
@@ -541,6 +553,7 @@ MainWindow
 │       │   ├── [Run] button
 │       │   ├── ProgressPanel (bar + status label)
 │       │   └── QTextEdit log (read-only, monospace)
+│       ├── ToolPage[AtlasUnpacker]
 │       ├── ToolPage[ChromaKey]
 │       ├── ToolPage[ImageResizer]
 │       ├── ToolPage[SpriteExtractor]

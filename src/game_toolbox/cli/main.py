@@ -411,3 +411,57 @@ def sprite_extractor_cmd(
     )
 
     click.echo(f"Extracted {result.count} sprites to {result.output_dir}")
+
+
+@cli.command(name="atlas-unpacker")
+@click.argument("plist", type=click.Path(exists=True, dir_okay=False, resolve_path=True))
+@click.option(
+    "-o",
+    "--output",
+    "output_dir",
+    type=click.Path(resolve_path=True),
+    default=None,
+    help="Output directory (default: unpacked/ next to plist).",
+)
+@click.option("--skip-existing", is_flag=True, default=False, help="Skip sprites whose output file already exists.")
+@click.option(
+    "--pvrtextool",
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True),
+    default=None,
+    help="Path to PVRTexToolCLI (only needed for PVRTC textures).",
+)
+@click.option("--dry-run", is_flag=True, default=False, help="Show atlas metadata without extracting sprites.")
+def atlas_unpacker_cmd(
+    plist: str,
+    output_dir: str | None,
+    skip_existing: bool,
+    pvrtextool: str | None,
+    dry_run: bool,
+) -> None:
+    """Extract sprites from a Cocos2d texture atlas (.plist + .pvr.ccz/.pvr/.png).
+
+    PLIST is the path to the Cocos2d .plist atlas descriptor file.
+    The matching texture file is located automatically next to the plist.
+    """
+    from game_toolbox.core.events import EventBus
+    from game_toolbox.tools.atlas_unpacker import AtlasUnpackerTool
+
+    bus = EventBus()
+    bus.subscribe("progress", lambda **kw: click.echo(f"  [{kw['current']:5d}/{kw['total']:5d}] {kw['message']}"))
+    bus.subscribe("log", lambda **kw: click.echo(f"  {kw['message']}"))
+
+    tool = AtlasUnpackerTool(event_bus=bus)
+    result = tool.run(
+        params={
+            "input": Path(plist),
+            "output_dir": Path(output_dir) if output_dir else None,
+            "skip_existing": skip_existing,
+            "pvrtextool": Path(pvrtextool) if pvrtextool else None,
+            "dry_run": dry_run,
+        },
+    )
+
+    if dry_run:
+        click.echo("Dry run complete.")
+    else:
+        click.echo(f"Extracted {result.count} sprites to {result.output_dir}")
