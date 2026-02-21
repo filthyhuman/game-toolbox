@@ -57,6 +57,7 @@ def extract_atlas(
     plist_path: Path,
     output_dir: Path,
     *,
+    suffix: str = "",
     skip_existing: bool = False,
     pvrtextool: Path | None = None,
     event_bus: EventBus | None = None,
@@ -67,6 +68,8 @@ def extract_atlas(
         plist_path: Path to the Cocos2d .plist sprite sheet descriptor.
         output_dir: Directory where individual PNG files will be written.
             Created automatically if it does not exist.
+        suffix: String appended before the ``.png`` extension in each output
+            filename.  For example, ``"@2x"`` produces ``sprite@2x.png``.
         skip_existing: When True, skip frames whose output file already exists.
         pvrtextool: Optional path to the PVRTexToolCLI binary. Required only
             when the atlas uses PVRTC GPU compression.
@@ -94,7 +97,8 @@ def extract_atlas(
     images: list[ImageData] = []
 
     for idx, (name, frame) in enumerate(frames.items()):
-        out_name = name if name.lower().endswith(".png") else name + ".png"
+        stem = name[:-4] if name.lower().endswith(".png") else name
+        out_name = stem + suffix + ".png"
         out_path = output_dir / out_name
 
         if skip_existing and out_path.exists():
@@ -240,9 +244,26 @@ def _load_texture(path: Path, *, pvrtextool: Path | None) -> Image.Image:
 def _crop_sprite(atlas: Image.Image, frame: AtlasSpriteFrame) -> Image.Image:
     """Crop one sprite frame from the atlas, un-rotating if necessary.
 
-    Cocos2d ``rotated=True`` means the sprite was placed rotated 90 deg
-    clockwise inside the atlas to save space. We rotate 90 deg counter-
-    clockwise to restore the original orientation.
+    Coordinate conventions:
+        1. **Y-axis**: Cocos2d plist frame rects use bottom-left origin
+           (OpenGL convention).  PIL uses top-left, so we flip::
+
+               y_pil = atlas.height - frame.y - packed_h
+
+        2. **Vertical flip**: PVR texture data is stored bottom-to-top.
+           PIL's ``frombytes`` puts row 0 of the data at the top of the
+           image, visually inverting all rows.  ``FLIP_TOP_BOTTOM`` corrects
+           this.
+
+    Rotated sprites (``rotated=True``):
+        TexturePacker packs some sprites 90 deg CW to save space.  In the
+        plist, ``frame.w`` and ``frame.h`` are the **original** (unrotated)
+        sprite dimensions.  The sprite occupies ``(frame.h x frame.w)``
+        pixels in the atlas.
+
+        To recover the original orientation::
+
+            crop h x w  ->  FLIP_TOP_BOTTOM  ->  rotate 90 deg CCW
 
     Args:
         atlas: The full atlas PIL Image.
@@ -251,7 +272,15 @@ def _crop_sprite(atlas: Image.Image, frame: AtlasSpriteFrame) -> Image.Image:
     Returns:
         The cropped (and optionally un-rotated) sprite Image.
     """
-    region = atlas.crop((frame.x, frame.y, frame.x + frame.w, frame.y + frame.h))
     if frame.rotated:
+        # Packed 90° CW in atlas: packed_w = original h, packed_h = original w
+        packed_w, packed_h = frame.h, frame.w
+        y = atlas.height - frame.y - packed_h
+        region = atlas.crop((frame.x, y, frame.x + packed_w, y + packed_h))
+        region = region.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
         region = region.rotate(90, expand=True)
+    else:
+        y = atlas.height - frame.y - frame.h
+        region = atlas.crop((frame.x, y, frame.x + frame.w, y + frame.h))
+        region = region.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
     return region

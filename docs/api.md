@@ -1356,6 +1356,7 @@ def extract_atlas(
     plist_path: Path,
     output_dir: Path,
     *,
+    suffix: str = "",
     skip_existing: bool = False,
     pvrtextool: Path | None = None,
     event_bus: EventBus | None = None,
@@ -1368,6 +1369,7 @@ Extract all sprite frames from a Cocos2d `.plist` + texture atlas pair.
 |-----------|------|---------|-------------|
 | `plist_path` | `Path` | *required* | Path to the `.plist` atlas descriptor. |
 | `output_dir` | `Path` | *required* | Output directory (created automatically). |
+| `suffix` | `str` | `""` | Suffix before `.png` extension (e.g. `"@2x"` → `sprite@2x.png`). |
 | `skip_existing` | `bool` | `False` | Skip sprites whose output file already exists. |
 | `pvrtextool` | `Path \| None` | `None` | Path to PVRTexToolCLI (PVRTC only). |
 | `event_bus` | `EventBus \| None` | `None` | Optional bus for progress events. |

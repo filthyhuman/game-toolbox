@@ -303,34 +303,49 @@ class TestPVR:
 
 @pytest.fixture()
 def atlas_pair(tmp_path: Path) -> tuple[Path, Path]:
-    """Create a matching .plist + .png atlas pair for testing."""
+    """Create a matching .plist + .png atlas pair for testing.
+
+    The atlas is 64x64 with 4 coloured 32x32 quadrants (PIL top-left origin):
+
+    - (0, 0): RED     (top-left)
+    - (32, 0): GREEN  (top-right)
+    - (0, 32): BLUE   (bottom-left)
+    - (32, 32): YELLOW (bottom-right)
+
+    Plist coordinates use Cocos2d bottom-left origin (y=0 at bottom):
+
+    - RED at PIL y=0    → Cocos y = 64 - 0 - 32 = 32
+    - GREEN at PIL y=0  → Cocos y = 32
+    - BLUE at PIL y=32  → Cocos y = 64 - 32 - 32 = 0
+    - YELLOW at PIL y=32 → Cocos y = 0
+    """
     # Create a 64x64 atlas PNG with 4 coloured quadrants
     png_path = _make_png_atlas(tmp_path / "sprites.png", 64, 64)
 
-    # Create a plist referencing 4 sprites (2x2 grid of 32x32)
+    # Create a plist referencing 4 sprites using Cocos2d bottom-left coords
     plist_path = _make_plist(
         tmp_path / "sprites.plist",
         frames={
             "red.png": {
-                "frame": "{{0,0},{32,32}}",
-                "rotated": False,
-                "sourceSize": "{32,32}",
-                "offset": "{0,0}",
-            },
-            "green.png": {
-                "frame": "{{32,0},{32,32}}",
-                "rotated": False,
-                "sourceSize": "{32,32}",
-                "offset": "{0,0}",
-            },
-            "blue.png": {
                 "frame": "{{0,32},{32,32}}",
                 "rotated": False,
                 "sourceSize": "{32,32}",
                 "offset": "{0,0}",
             },
-            "yellow.png": {
+            "green.png": {
                 "frame": "{{32,32},{32,32}}",
+                "rotated": False,
+                "sourceSize": "{32,32}",
+                "offset": "{0,0}",
+            },
+            "blue.png": {
+                "frame": "{{0,0},{32,32}}",
+                "rotated": False,
+                "sourceSize": "{32,32}",
+                "offset": "{0,0}",
+            },
+            "yellow.png": {
+                "frame": "{{32,0},{32,32}}",
                 "rotated": False,
                 "sourceSize": "{32,32}",
                 "offset": "{0,0}",
@@ -452,11 +467,19 @@ class TestExtractAtlas:
         assert len(completed) == 1
 
     def test_rotated_sprite(self, tmp_path: Path) -> None:
-        """Correctly un-rotates a rotated sprite."""
-        # Create a 64x32 atlas where the sprite is stored rotated (32x64 region)
+        """Correctly un-rotates a rotated sprite.
+
+        The original sprite is 64 wide x 32 tall.  Packed 90 deg CW in the
+        atlas it occupies 32 wide x 64 tall (packed_w=h=32, packed_h=w=64).
+        In the plist (format 2), ``{w,h}`` are the *original* dimensions:
+        ``{64,32}``.
+
+        The packed region is placed at PIL position (0, 0) which, for a
+        64 px tall atlas, corresponds to Cocos2d y = 0 (bottom-left origin)
+        with packed_h = 64: ``y_pil = 64 - 0 - 64 = 0``.
+        """
         atlas = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-        # A 32-wide x 64-tall red block stored rotated in atlas
-        # When rotated=True, w/h in plist refer to the rotated (as-stored) dimensions
+        # Packed region: 32 wide x 64 tall at PIL (0, 0)
         rotated_block = Image.new("RGBA", (32, 64), (255, 0, 0, 255))
         atlas.paste(rotated_block, (0, 0))
         atlas.save(str(tmp_path / "rot.png"))
@@ -465,7 +488,7 @@ class TestExtractAtlas:
             tmp_path / "rot.plist",
             frames={
                 "wide.png": {
-                    "frame": "{{0,0},{32,64}}",
+                    "frame": "{{0,0},{64,32}}",
                     "rotated": True,
                     "sourceSize": "{64,32}",
                     "offset": "{0,0}",
@@ -477,8 +500,33 @@ class TestExtractAtlas:
         assert result.count == 1
 
         sprite = Image.open(result.images[0].path)
-        # After 90° CCW rotation: 32x64 -> 64x32
+        # Original dimensions restored: 64x32
         assert sprite.size == (64, 32)
+
+    def test_suffix_naming(self, atlas_pair: tuple[Path, Path], tmp_path: Path) -> None:
+        """Suffix is appended before the .png extension."""
+        plist_path, _ = atlas_pair
+        out = tmp_path / "suffix_out"
+
+        result = extract_atlas(plist_path, out, suffix="@2x")
+
+        assert result.count == 4
+        names = {img.path.name for img in result.images}
+        assert "red@2x.png" in names
+        assert "green@2x.png" in names
+        assert "blue@2x.png" in names
+        assert "yellow@2x.png" in names
+
+    def test_suffix_empty_default(self, atlas_pair: tuple[Path, Path], tmp_path: Path) -> None:
+        """Default empty suffix produces plain .png filenames."""
+        plist_path, _ = atlas_pair
+        out = tmp_path / "nosuffix_out"
+
+        result = extract_atlas(plist_path, out)
+
+        names = {img.path.name for img in result.images}
+        assert "red.png" in names
+        assert "green.png" in names
 
 
 class TestProbeAtlas:

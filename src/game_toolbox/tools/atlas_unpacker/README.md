@@ -23,6 +23,9 @@ uv run game-toolbox atlas-unpacker atlas.plist -o sprites/
 # Skip already-extracted sprites
 uv run game-toolbox atlas-unpacker atlas.plist --skip-existing
 
+# Add @2x suffix for retina/HD assets
+uv run game-toolbox atlas-unpacker atlas.plist --suffix @2x
+
 # Dry run — show metadata without extracting
 uv run game-toolbox atlas-unpacker atlas.plist --dry-run
 
@@ -37,6 +40,7 @@ uv run game-toolbox atlas-unpacker atlas.plist --pvrtextool /usr/local/bin/PVRTe
 | `input` | positional | *required* | Path to the `.plist` atlas descriptor. |
 | `output_dir` | `-o` | `unpacked/` | Output directory for extracted sprites. |
 | `skip_existing` | `--skip-existing` | `false` | Skip sprites whose output file already exists. |
+| `suffix` | `--suffix` | `""` | Suffix before `.png` extension (e.g. `@2x` for retina assets). |
 | `pvrtextool` | `--pvrtextool` | | Path to PVRTexToolCLI (PVRTC textures only). |
 | `dry_run` | `--dry-run` | `false` | Show atlas metadata without extracting. |
 
@@ -60,6 +64,7 @@ from game_toolbox.tools.atlas_unpacker.logic import extract_atlas, probe_atlas
 result = extract_atlas(
     Path("GameObjects.plist"),
     Path("output/sprites"),
+    suffix="@2x",  # optional: adds @2x before .png extension
 )
 print(f"Extracted {result.count} sprites to {result.output_dir}")
 

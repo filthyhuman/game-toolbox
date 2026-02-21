@@ -70,6 +70,13 @@ class AtlasUnpackerTool(BaseTool):
                 help="Path to PVRTexToolCLI (only needed for PVRTC textures).",
             ),
             ToolParameter(
+                name="suffix",
+                label="Output suffix",
+                type=str,
+                default="",
+                help="Suffix added before .png extension (e.g. '@2x' for retina assets).",
+            ),
+            ToolParameter(
                 name="dry_run",
                 label="Dry run",
                 type=bool,
@@ -164,6 +171,7 @@ class AtlasUnpackerTool(BaseTool):
         output_dir = plist_path.parent / "unpacked" if raw_output is None else Path(raw_output)
 
         # Resolve optional parameters.
+        suffix: str = params.get("suffix", "")
         skip_existing: bool = params.get("skip_existing", False)
         raw_pvrtextool = params.get("pvrtextool")
         pvrtextool = Path(raw_pvrtextool) if raw_pvrtextool is not None else None
@@ -171,6 +179,7 @@ class AtlasUnpackerTool(BaseTool):
         return extract_atlas(
             plist_path,
             output_dir,
+            suffix=suffix,
             skip_existing=skip_existing,
             pvrtextool=pvrtextool,
             event_bus=self.event_bus,

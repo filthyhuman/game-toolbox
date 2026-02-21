@@ -430,12 +430,14 @@ def sprite_extractor_cmd(
     default=None,
     help="Path to PVRTexToolCLI (only needed for PVRTC textures).",
 )
+@click.option("--suffix", default="", help="Suffix before .png extension (e.g. '@2x' for retina assets).")
 @click.option("--dry-run", is_flag=True, default=False, help="Show atlas metadata without extracting sprites.")
 def atlas_unpacker_cmd(
     plist: str,
     output_dir: str | None,
     skip_existing: bool,
     pvrtextool: str | None,
+    suffix: str,
     dry_run: bool,
 ) -> None:
     """Extract sprites from a Cocos2d texture atlas (.plist + .pvr.ccz/.pvr/.png).
@@ -457,6 +459,7 @@ def atlas_unpacker_cmd(
             "output_dir": Path(output_dir) if output_dir else None,
             "skip_existing": skip_existing,
             "pvrtextool": Path(pvrtextool) if pvrtextool else None,
+            "suffix": suffix,
             "dry_run": dry_run,
         },
     )

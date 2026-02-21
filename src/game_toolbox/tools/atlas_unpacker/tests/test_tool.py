@@ -19,7 +19,16 @@ from game_toolbox.tools.atlas_unpacker.tool import AtlasUnpackerTool
 
 
 def _make_atlas_pair(tmp_path: Path) -> tuple[Path, Path]:
-    """Create a matching .plist + .png atlas pair."""
+    """Create a matching .plist + .png atlas pair.
+
+    Plist coordinates use Cocos2d bottom-left origin (y=0 at bottom).
+    For a 64 px tall atlas the mapping is:
+
+    - RED   at PIL (0, 0)  → Cocos (0, 32)
+    - GREEN at PIL (32, 0) → Cocos (32, 32)
+    - BLUE  at PIL (0, 32) → Cocos (0, 0)
+    - YELLOW at PIL (32, 32) → Cocos (32, 0)
+    """
     # Create 64x64 atlas
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     colours = [(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255)]
@@ -29,29 +38,29 @@ def _make_atlas_pair(tmp_path: Path) -> tuple[Path, Path]:
     png_path = tmp_path / "test.png"
     img.save(str(png_path))
 
-    # Create plist
+    # Create plist with Cocos2d bottom-left coordinates
     plist_data: dict[str, Any] = {
         "frames": {
             "red.png": {
-                "frame": "{{0,0},{32,32}}",
-                "rotated": False,
-                "sourceSize": "{32,32}",
-                "offset": "{0,0}",
-            },
-            "green.png": {
-                "frame": "{{32,0},{32,32}}",
-                "rotated": False,
-                "sourceSize": "{32,32}",
-                "offset": "{0,0}",
-            },
-            "blue.png": {
                 "frame": "{{0,32},{32,32}}",
                 "rotated": False,
                 "sourceSize": "{32,32}",
                 "offset": "{0,0}",
             },
-            "yellow.png": {
+            "green.png": {
                 "frame": "{{32,32},{32,32}}",
+                "rotated": False,
+                "sourceSize": "{32,32}",
+                "offset": "{0,0}",
+            },
+            "blue.png": {
+                "frame": "{{0,0},{32,32}}",
+                "rotated": False,
+                "sourceSize": "{32,32}",
+                "offset": "{0,0}",
+            },
+            "yellow.png": {
+                "frame": "{{32,0},{32,32}}",
                 "rotated": False,
                 "sourceSize": "{32,32}",
                 "offset": "{0,0}",
@@ -213,3 +222,15 @@ class TestToolExecution:
         result = tool.run(params={"input": plist_path, "output_dir": out, "skip_existing": True})
 
         assert result.count == 3
+
+    def test_suffix_parameter(self, tool: AtlasUnpackerTool, atlas_pair: tuple[Path, Path], tmp_path: Path) -> None:
+        """Suffix parameter is passed through to extract_atlas."""
+        plist_path, _ = atlas_pair
+        out = tmp_path / "suffix_out"
+
+        result = tool.run(params={"input": plist_path, "output_dir": out, "suffix": "@2x"})
+
+        assert result.count == 4
+        names = {img.path.name for img in result.images}
+        assert "red@2x.png" in names
+        assert "green@2x.png" in names

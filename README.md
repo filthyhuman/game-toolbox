@@ -420,6 +420,9 @@ uv run game-toolbox atlas-unpacker atlas.plist -o sprites/
 # Skip already-extracted sprites
 uv run game-toolbox atlas-unpacker atlas.plist --skip-existing
 
+# Add @2x suffix for retina/HD assets
+uv run game-toolbox atlas-unpacker atlas.plist --suffix @2x
+
 # Dry run — show metadata without extracting
 uv run game-toolbox atlas-unpacker atlas.plist --dry-run
 
@@ -433,6 +436,7 @@ uv run game-toolbox atlas-unpacker atlas.plist --pvrtextool /usr/local/bin/PVRTe
 |--------|-------|---------|-------------|
 | `--output` | `-o` | `unpacked/` | Output directory for extracted sprites. |
 | `--skip-existing` | | `false` | Skip sprites whose output file already exists. |
+| `--suffix` | | `""` | Suffix before `.png` extension (e.g. `@2x` for retina assets). |
 | `--pvrtextool` | | | Path to PVRTexToolCLI (PVRTC textures only). |
 | `--dry-run` | | `false` | Show atlas metadata without extracting sprites. |
 
